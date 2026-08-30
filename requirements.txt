@@ -1,0 +1,14 @@
+# Irodori-TTS ComfyUI Extension requirements
+# Note: We omit standard ComfyUI dependencies like torch, torchaudio, safetensors, and huggingface-hub 
+# to avoid messing up the existing ComfyUI environment. We only include what is specific to Irodori-TTS.
+
+dacvae @ git+https://github.com/facebookresearch/dacvae
+torchcodec>=0.10.0
+transformers<5
+sentencepiece>=0.1.99
+soundfile>=0.12.0
+imageio-ffmpeg>=0.5.1
+peft>=0.18.0
+timm>=1.0.26
+silentcipher @ git+https://github.com/SesameAILabs/silentcipher.git@d46d7d0893a583d8968ab3a6626e2289faec9152
+
