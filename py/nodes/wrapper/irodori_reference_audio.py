@@ -113,7 +113,7 @@ class IrodoriReferenceAudio(io.ComfyNode):
                 ),
                 io.Float.Input(
                     "max_ref_seconds",
-                    default=30.0,
+                    default=120.0,
                     min=1.0,
                     max=120.0,
                     step=1.0,

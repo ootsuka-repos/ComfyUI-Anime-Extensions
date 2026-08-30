@@ -19,7 +19,7 @@ class IrodoriDurationConfig(io.ComfyNode):
                     min=0.1,
                     max=3.0,
                     step=0.01,
-                    tooltip="v3自動秒数推定の倍率です。Samplerのsecondsが0のときに有効です。",
+                    tooltip="duration predictor対応モデル（v3/v4系）の自動秒数推定の倍率です。Samplerのsecondsが0のときに有効です。",
                 ),
                 io.Float.Input(
                     "min_seconds",
@@ -27,7 +27,7 @@ class IrodoriDurationConfig(io.ComfyNode):
                     min=0.1,
                     max=120.0,
                     step=0.1,
-                    tooltip="v3自動秒数推定で許可する最短秒数です。",
+                    tooltip="duration predictor対応モデル（v3/v4系）の自動秒数推定で許可する最短秒数です。",
                 ),
                 io.Float.Input(
                     "max_seconds",
@@ -35,7 +35,7 @@ class IrodoriDurationConfig(io.ComfyNode):
                     min=0.1,
                     max=120.0,
                     step=0.5,
-                    tooltip="v3自動秒数推定で許可する最長秒数です。Samplerのsecondsを手動指定した場合もこの範囲に丸めます。",
+                    tooltip="duration predictor対応モデル（v3/v4系）の自動秒数推定で許可する最長秒数です。Samplerのsecondsを手動指定した場合もこの範囲に丸めます。",
                 ),
             ],
             outputs=[

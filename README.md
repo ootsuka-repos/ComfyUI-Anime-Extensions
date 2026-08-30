@@ -27,7 +27,7 @@ ComfyUIで[Irodori-TTS](https://github.com/Aratako/Irodori-TTS)を使うため�
 
    ```bash
    cd ComfyUI/custom_nodes
-   git clone https://github.com/OWNER/ComfyUI-Extensions.git
+   git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git
    ```
 
 2. ComfyUIで使用しているPython環境を有効化し、依存関係をインストールします。
@@ -53,10 +53,13 @@ IrodoriTTSのモデルはComfyUI標準の`checkpoints`一覧から選択しま�
 
 チェックポイント例:
 
+- [Aratako/Irodori-TTS-v4.1-Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)（推奨）
 - [Aratako/Irodori-TTS-500M-v3](https://huggingface.co/Aratako/Irodori-TTS-500M-v3)
 - [Aratako/Irodori-TTS-500M-v2](https://huggingface.co/Aratako/Irodori-TTS-500M-v2)
 - [Aratako/Irodori-TTS-500M-v2-VoiceDesign](https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign)
 - [Aratako/Irodori-TTS-500M](https://huggingface.co/Aratako/Irodori-TTS-500M)
+
+`Irodori-TTS-v4.1-Small` は参照音声による話者指定と VoiceDesign キャプションを同じチェックポイントで利用できます。`seconds = 0` を指定すると、内蔵の duration predictor で音声長を自動推定します。
 
 チェックポイントの`latent_dim`に応じて、内部で使用するcodecが自動選択されます。
 
@@ -90,14 +93,14 @@ IrodoriTTS Model Loader
     -> IrodoriTTS Sampler / model_config
 ```
 
-`IrodoriTTS Sampler`の`text`に読み上げたい文章を入力し、`seconds`で生成秒数、`num_steps`でサンプリングステップ数、`seed`で乱数シードを指定します。v3モデルでは`seconds = 0`で自動秒数推定を使用できます。
+`IrodoriTTS Sampler`の`text`に読み上げたい文章を入力し、`seconds`で生成秒数、`num_steps`でサンプリングステップ数、`seed`で乱数シードを指定します。duration predictor 対応モデル（v3/v4 系）では`seconds = 0`で自動秒数推定を使用できます。
 
 ## 参照音声を使う
 
 ![reference_audio](assets/reference_audio.png)
 
 話者や雰囲気を参照音声に寄せたい場合は、`IrodoriTTS Reference Audio`を追加して`IrodoriTTS Sampler`へ接続します。
-VoiceDesignモデルでは機能しません。
+`Irodori-TTS-v4.1-Small`では VoiceDesign キャプションとも併用できます。旧 VoiceDesign 専用モデルでは参照音声を使いません。
 
 ```text
 IrodoriTTS Reference Audio
@@ -113,7 +116,7 @@ IrodoriTTS Reference Audio
 
 ![voice_design](assets/voice_design.png)
 
-VoiceDesign対応モデルでは、`IrodoriTTS VoiceDesign Config`を接続して声質や話し方を文章で指定できます。
+VoiceDesign対応モデルでは、`IrodoriTTS VoiceDesign Config`を接続して声質や話し方を文章で指定できます。`Irodori-TTS-v4.1-Small`では参照音声と組み合わせることもできます。
 
 ```text
 IrodoriTTS VoiceDesign Config
@@ -123,7 +126,7 @@ IrodoriTTS VoiceDesign Config
 
 `caption`には声質、話速、感情、話し方などの説明文を入力します。キャプション条件の強度は`IrodoriTTS CFG Config`の`cfg_scale_caption`で調整します。
 
-通常のIrodoriTTSモデルでは、このノードは接続不要です。
+キャプション条件を持たない旧モデルでは、このノードは接続不要です。
 
 ## LoRAを使う
 
@@ -178,7 +181,7 @@ IrodoriTTSのチェックポイントと実行設定をまとめた`irodori_mode
 - `text`: 読み上げるテキスト
 - `seed`: 生成シード
 - `seconds`: 生成する音声長
-  - v3モデルで秒数の自動推定が可能になりました。`0` で自動推定がONになります。
+  - duration predictor 対応モデル（v3/v4 系）では、`0` で自動推定がONになります。
   - v1, v2モデルで `0` が指定されていると30にフォールバックされます
 - `num_steps`: サンプリングステップ数
 - `batch_size`: 同一条件で生成する候補数
@@ -191,7 +194,7 @@ IrodoriTTSのチェックポイントと実行設定をまとめた`irodori_mode
 - `ref_config`: 参照音声設定
 - `voice_design_config`: VoiceDesign用キャプション設定
 - `cfg_config`: CFG詳細設定
-- `duration_config`: v3自動秒数推定の詳細設定
+- `duration_config`: duration predictor による自動秒数推定の詳細設定
 - `rescale_config`: Rescale・speaker K/V補正設定
 - `schedule_config`: RFサンプリングの時刻スケジュール設定
 - `trim_tail_config`: 末尾切り詰め判定の詳細設定

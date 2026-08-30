@@ -40,7 +40,7 @@ IrodoriTTSのチェックポイントと実行設定をまとめ、`irodori_mode
 | `model_config` | - | `IrodoriTTS Model Loader`の出力を接続します。 |
 | `text` | - | 読み上げるテキストです。改行を含めた長文も指定できます。 |
 | `seed` | `0` | 生成シードです。同じ条件で別候補を生成したい場合は値を変えます。 |
-| `seconds` | `30.0` | 生成する音声長です。v3モデルでは`0`を指定すると自動秒数推定を使います。v1/v2モデルや推定器がない場合、`0`は30秒にフォールバックします。 |
+| `seconds` | `0.0` | 生成する音声長です。duration predictor 対応モデル（v3/v4 系）では`0`を指定すると自動秒数推定を使います。v1/v2モデルや推定器がない場合、`0`は30秒にフォールバックします。 |
 | `num_steps` | `40` | サンプリングステップ数です。大きいほど時間がかかりますが、品質や安定性が変わる場合があります。 |
 
 ### Optional Config Inputs
@@ -51,7 +51,7 @@ IrodoriTTSのチェックポイントと実行設定をまとめ、`irodori_mode
 | `ref_config` | `IrodoriTTS Reference Audio` | 参照音声による話者・雰囲気の指定を行います。 |
 | `voice_design_config` | `IrodoriTTS VoiceDesign Config` | VoiceDesignモデル向けの声質・話し方キャプションを指定します。 |
 | `cfg_config` | `IrodoriTTS CFG Config` | テキスト、話者、VoiceDesignキャプション、Character Voice画像条件、適用時刻などのCFG詳細を指定します。 |
-| `duration_config` | `IrodoriTTS Duration Config` | v3モデルの自動秒数推定を補正します。Samplerの`seconds = 0`時に意味があります。 |
+| `duration_config` | `IrodoriTTS Duration Config` | duration predictor 対応モデル（v3/v4 系）の自動秒数推定を補正します。Samplerの`seconds = 0`時に意味があります。 |
 | `rescale_config` | `IrodoriTTS Rescale Config` | 潜在の振れ幅やspeaker K/V補正を指定します。 |
 | `schedule_config` | `IrodoriTTS Schedule Config` | RFサンプリングの時刻スケジュールを指定します。 |
 | `trim_tail_config` | `IrodoriTTS Trim Tail Config` | 末尾切り詰め判定のしきい値を指定します。Samplerの`trim_tail`が有効なときに使われます。 |
@@ -74,11 +74,11 @@ IrodoriTTSのチェックポイントと実行設定をまとめ、`irodori_mode
 | --- | --- | --- |
 | `audio` | input一覧 | ComfyUIの`input`フォルダ内の音声または動画ファイルです。 |
 | `normalize_ref_audio` | `False` | 参照音声を-16dB基準で正規化します。参照音声の音量差が大きい場合に有効です。 |
-| `max_ref_seconds` | `30.0` | 参照として使う最大秒数です。長いファイルは先頭からこの秒数まで使われます。 |
+| `max_ref_seconds` | `120.0` | 参照として使う最大秒数です。`Irodori-TTS-v4.1-Small`は最大120秒をサポートします。長いファイルは先頭からこの秒数まで使われます。 |
 
 動画ファイルを指定した場合は、ffmpegで音声を抽出します。`imageio-ffmpeg`またはシステムの`ffmpeg`が必要です。
 
-VoiceDesignモデルでは参照音声ではなく`IrodoriTTS VoiceDesign Config`を使用します。
+`Irodori-TTS-v4.1-Small`では参照音声と`IrodoriTTS VoiceDesign Config`を併用できます。旧 VoiceDesign 専用モデルでは参照音声を使用しません。
 
 ## IrodoriTTS VoiceDesign Config
 
@@ -89,7 +89,7 @@ VoiceDesignモデル向けのキャプション条件を作成し、Samplerの`v
 | `caption` | 空文字 | 声質、話速、感情、話し方などの説明文です。 |
 | `max_caption_len` | `0` | キャプションtoken長の上限です。`0`の場合はチェックポイント側の標準値を使います。 |
 
-通常のIrodoriTTSモデルでは接続不要です。
+キャプション条件を持たない旧モデルでは接続不要です。`Irodori-TTS-v4.1-Small`では参照音声と併用できます。
 
 ## IrodoriTTS CFG Config
 
@@ -110,7 +110,7 @@ CFGの詳細設定を作成し、Samplerの`cfg_config`へ接続します。
 
 ## IrodoriTTS Duration Config
 
-v3モデルの自動秒数推定を補正し、Samplerの`duration_config`へ接続します。
+duration predictor 対応モデル（v3/v4 系）の自動秒数推定を補正し、Samplerの`duration_config`へ接続します。
 
 | Input | Default | 説明 |
 | --- | --- | --- |

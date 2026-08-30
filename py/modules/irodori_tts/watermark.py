@@ -26,11 +26,8 @@ def _match_original_rank(audio: torch.Tensor, *, reference: torch.Tensor) -> tor
 
 
 class SilentCipherWatermarker:
-    def __init__(self, *, enabled: bool, device: str, model_type: str = "44.1k") -> None:
-        self.enabled = bool(enabled)
-        self.device = str(device)
-        self.model_type = str(model_type)
-        self.model = self._load_backend(device=device, model_type=model_type) if self.enabled else None
+    def __init__(self, *, device: str, model_type: str = "44.1k") -> None:
+        self.model = self._load_backend(device=device, model_type=model_type)
 
     @staticmethod
     def _load_backend(*, device: str, model_type: str):
@@ -56,17 +53,6 @@ class SilentCipherWatermarker:
     def ready(self) -> bool:
         return self.model is not None
 
-    def ensure_loaded(self, *, device: str | None = None) -> None:
-        if not self.enabled:
-            return
-        if device is not None:
-            self.device = str(device)
-        if self.model is None:
-            self.model = self._load_backend(device=self.device, model_type=self.model_type)
-
-    def unload(self) -> None:
-        self.model = None
-
     def encode_one(
         self,
         audio: torch.Tensor,
@@ -74,7 +60,6 @@ class SilentCipherWatermarker:
         sample_rate: int,
         payload: Iterable[int] = IRODORI_WATERMARK_PAYLOAD,
     ) -> torch.Tensor:
-        self.ensure_loaded()
         if self.model is None:
             return audio
 

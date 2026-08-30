@@ -58,7 +58,7 @@ class IrodoriTTSSampler(io.ComfyNode):
                     min=0.0,
                     max=120.0,
                     step=0.5,
-                    tooltip="生成する音声長です。0ならv3モデルでは自動推定し、duration predictorのないモデルでは30秒にフォールバックします。",
+                    tooltip="生成する音声長です。0ならduration predictor対応モデル（v3/v4系）では自動推定し、推定器のないモデルでは30秒にフォールバックします。",
                 ),
                 io.Int.Input(
                     "num_steps",
@@ -90,7 +90,7 @@ class IrodoriTTSSampler(io.ComfyNode):
                 IO_DURATION_CONFIG.Input(
                     "duration_config",
                     optional=True,
-                    tooltip="v3自動秒数推定の詳細設定です。未接続なら標準値を使用します。",
+                    tooltip="duration predictor対応モデル（v3/v4系）の自動秒数推定設定です。未接続なら標準値を使用します。",
                 ),
                 IO_RESCALE_CONFIG.Input(
                     "rescale_config",
@@ -167,7 +167,12 @@ class IrodoriTTSSampler(io.ComfyNode):
     ):
         lora_stack = list(lora_stack or [])
         lora_paths = tuple(str(item["path"]) for item in lora_stack if item.get("path"))
-        lora_scales = tuple(float(item.get("strength", 1.0)) for item in lora_stack if item.get("path"))
+        if len(lora_paths) > 1:
+            raise ValueError(
+                "Irodori-TTS v4 currently supports one LoRA adapter per sampler. "
+                "Use one IrodoriTTS LoRA Stack node or merge compatible adapters first."
+            )
+        lora_adapter = lora_paths[0] if lora_paths else None
 
         runtime_key = RuntimeKey(
             checkpoint=str(model_config["checkpoint"]),
@@ -177,12 +182,8 @@ class IrodoriTTSSampler(io.ComfyNode):
             codec_device=str(model_config.get("codec_device", "cpu")),
             codec_precision=str(model_config.get("codec_precision", "fp32")),
             enable_watermark=bool(model_config.get("enable_watermark", False)),
-            silentcipher_watermark_enabled=bool(
-                model_config.get("silentcipher_watermark_enabled", False)
-            ),
             compile_model=bool(model_config.get("compile_model", False)),
             compile_dynamic=bool(model_config.get("compile_dynamic", False)),
-            lora_paths=lora_paths,
         )
 
         ref_config = ref_config or {}
@@ -217,7 +218,7 @@ class IrodoriTTSSampler(io.ComfyNode):
             duration_scale=float(duration_config.get("duration_scale", 1.0)),
             min_seconds=float(duration_config.get("min_seconds", 0.5)),
             max_seconds=float(duration_config.get("max_seconds", 30.0)),
-            max_ref_seconds=ref_config.get("max_ref_seconds", 30.0),
+            max_ref_seconds=ref_config.get("max_ref_seconds", None),
             max_text_len=none_if_non_positive(int(max_text_len)),
             max_caption_len=voice_design_config.get("max_caption_len", None),
             num_steps=int(num_steps),
@@ -242,7 +243,7 @@ class IrodoriTTSSampler(io.ComfyNode):
             tail_window_size=int(trim_tail_config.get("tail_window_size", 20)),
             tail_std_threshold=float(trim_tail_config.get("tail_std_threshold", 0.05)),
             tail_mean_threshold=float(trim_tail_config.get("tail_mean_threshold", 0.1)),
-            lora_scales=lora_scales,
+            lora_adapter=lora_adapter,
         )
 
         runtime, _ = get_cached_runtime(runtime_key)

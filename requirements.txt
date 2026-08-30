@@ -1,10 +1,13 @@
 # Irodori-TTS ComfyUI Extension requirements
-# Note: We omit standard ComfyUI dependencies like torch, torchaudio, safetensors, and huggingface-hub 
-# to avoid messing up the existing ComfyUI environment. We only include what is specific to Irodori-TTS.
+# Note: torch and torchaudio are supplied by ComfyUI and deliberately omitted to
+# avoid replacing a working accelerator build. Irodori-TTS v4.1-Small requires a
+# ComfyUI environment with PyTorch 2.10 or newer.
 
 dacvae @ git+https://github.com/facebookresearch/dacvae
-torchcodec>=0.10.0
-transformers<5
+torchcodec>=0.10.0,<0.11.0
+transformers>=5.12.1,<6
+huggingface-hub>=0.34.0
+safetensors>=0.7.0
 sentencepiece>=0.1.99
 soundfile>=0.12.0
 imageio-ffmpeg>=0.5.1
