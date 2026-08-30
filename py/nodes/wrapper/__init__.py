@@ -1,5 +1,6 @@
 from . import (
     emoji_picker,
+    irodori_audio_save,
     irodori_cfg_config,
     irodori_duration_config,
     irodori_lora_stack,
@@ -24,4 +25,5 @@ nodes = [
     irodori_schedule_config.IrodoriScheduleConfig,
     irodori_trim_tail_config.IrodoriTrimTailConfig,
     irodori_sampler.IrodoriTTSSampler,
+    irodori_audio_save.IrodoriTTSAudioSave,
 ]

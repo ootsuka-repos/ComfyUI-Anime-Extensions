@@ -170,6 +170,17 @@ IrodoriTTS向けLoRAをスタックし、Samplerの`lora_stack`へ接続しま�
 
 複数LoRAを使う場合は、前段の`irodori_lora_stack`を次の`prev`に接続して積み重ねます。
 
+## IrodoriTTS Save Audio
+
+`IrodoriTTS Sampler`の`audio`を ComfyUI の`output`フォルダへ保存します。
+
+| Input | Default | 説明 |
+| --- | --- | --- |
+| `audio` | - | `IrodoriTTS Sampler`の`audio`出力を接続します。 |
+| `filename_prefix` | `audio/IrodoriTTS` | `output`フォルダ内の保存先プレフィックスです。 |
+| `format` | `wav` | `wav`（16-bit PCM）、`mp3`、`flac`から選びます。 |
+| `mp3_quality` | `320k` | MP3の品質です。`V0`、`128k`、`320k`から選べます。WAV／FLACでは無視されます。 |
+
 ## IrodoriTTS Emoji Picker
 
 IrodoriTTSで使いやすい絵文字を選ぶためのUIノードです。

@@ -12,6 +12,7 @@ ComfyUIで[Irodori-TTS](https://github.com/Aratako/Irodori-TTS)を使うため�
 
 - IrodoriTTSチェックポイントの読み込み
 - テキスト読み上げ音声の生成
+- WAV・MP3・FLAC形式での音声保存
 - 音声または動画ファイルからの参照話者指定
 - VoiceDesignモデル向けの声質・話し方キャプション指定
 - CFG、Duration、Rescale、Schedule、Trim Tail、speaker K/V補正などの詳細設定
@@ -198,6 +199,10 @@ IrodoriTTSのチェックポイントと実行設定をまとめた`irodori_mode
 - `rescale_config`: Rescale・speaker K/V補正設定
 - `schedule_config`: RFサンプリングの時刻スケジュール設定
 - `trim_tail_config`: 末尾切り詰め判定の詳細設定
+
+### IrodoriTTS Save Audio
+
+`IrodoriTTS Sampler`の`audio`を保存する出力ノードです。`format`で`wav`（標準）、`mp3`、`flac`を選べます。MP3では`mp3_quality`で`V0`、`128k`、`320k`を選択できます。
 
 ### IrodoriTTS Reference Audio
 
