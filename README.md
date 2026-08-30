@@ -1,362 +1,191 @@
 # ComfyUI-Extensions
 
-Irodori-TTS をはじめとする ComfyUI 拡張ノード集です。現在は Irodori-TTS ノードを提供しており、今後ほかのノードもこの拡張に追加できます。
+ComfyUI 上で Irodori-TTS 系の音声生成と Kanomemo 系の画像解析を行うカスタムノード集です。
 
-ComfyUIで[Irodori-TTS](https://github.com/Aratako/Irodori-TTS)を使うためのカスタムノードです。
+- Irodori-TTS のチェックポイントを読み込み、テキストから音声を生成
+- 参照音声、VoiceDesign、CFG、Rescale、Schedule、末尾トリムなどの生成条件を追加
+- Character Voice 対応チェックポイントで、キャラクター画像を条件に音声を生成
+- WAV / MP3 / FLAC で音声を保存
+- imgutils、WD14 ViT、MobileSAM を使った画像解析、マスク生成、キャラクター切り抜き
 
-本カスタムノードは、Irodori-TTSと、そのフォーク版である[Emoji-TTS](https://github.com/iron-mukakin/Emoji-TTS)を元にしています。
+このリポジトリには Irodori-TTS および Character Voice のモデル本体は含まれていません。
 
-テキストから音声を生成し、必要に応じて参照音声による話者指定、VoiceDesign用キャプション、CFG調整、Rescale補正、IrodoriTTS向けLoRAを組み合わせられます。
+## 動作要件
 
-## 主な機能
+- ComfyUI（新しい Extension API を使用できるバージョン）
+- Python 3.10 以降を推奨
+- Irodori-TTS v4.1-Small を使う場合は PyTorch 2.10 以降
+- GPU 推論を行う場合は、ComfyUI で動作する CUDA 対応 PyTorch 環境
+- Git（`dacvae` と `silentcipher` を GitHub からインストールするために必要）
 
-- IrodoriTTSチェックポイントの読み込み
-- テキスト読み上げ音声の生成
-- WAV・MP3・FLAC形式での音声保存
-- 音声または動画ファイルからの参照話者指定
-- VoiceDesignモデル向けの声質・話し方キャプション指定
-- CFG、Duration、Rescale、Schedule、Trim Tail、speaker K/V補正などの詳細設定
-- IrodoriTTS向けLoRAの適用
-- IrodoriTTSで使いやすい絵文字ピッカー
-- Irodori Character Voiceモデル向けのキャラクター画像条件生成
-
-各ノード入力の詳しい説明は[docs/parameters.md](docs/parameters.md)を確認してください。
+`torch` と `torchaudio` は ComfyUI 側の環境を利用するため、`requirements.txt` には含めていません。既存の CUDA 対応ビルドを上書きしないでください。
 
 ## インストール
 
-1. ComfyUIの`custom_nodes`ディレクトリにこのリポジトリを配置します。
+PowerShell で ComfyUI のディレクトリへ移動し、次を実行します。
 
-   ```bash
-   cd ComfyUI/custom_nodes
-   git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git
-   ```
+```powershell
+Set-Location -LiteralPath "C:\path\to\ComfyUI\custom_nodes"
+git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git
 
-2. ComfyUIで使用しているPython環境を有効化し、依存関係をインストールします。
+Set-Location -LiteralPath "C:\path\to\ComfyUI"
+.\python_embeded\python.exe -m pip install -r ".\custom_nodes\ComfyUI-Extensions\requirements.txt"
+```
 
-   ```bash
-   cd ComfyUI
-   pip install -r custom_nodes/ComfyUI-Extensions/requirements.txt
-   ```
+通常の Python 仮想環境で ComfyUI を動かしている場合は、最後のコマンドを次のように置き換えます。
 
-3. IrodoriTTSのチェックポイントをComfyUIの`models/checkpoints`に配置します。
+```powershell
+python -m pip install -r ".\custom_nodes\ComfyUI-Extensions\requirements.txt"
+```
 
-   例:
+インストール後に ComfyUI を再起動してください。起動ログに `ComfyUI-Extensions` の import 成功メッセージが表示されます。
 
-   ```text
-   ComfyUI/models/checkpoints/irodori_tts/model.safetensors
-   ```
+## モデルの配置
 
-4. ComfyUIを再起動します。
+Irodori-TTS または Character Voice の `.safetensors` チェックポイントを、ComfyUI の `models/checkpoints` 以下へ配置します。サブディレクトリも利用できます。
 
-## モデルについて
+```text
+ComfyUI/
+└─ models/
+   ├─ checkpoints/
+   │  └─ irodori_tts/
+   │     └─ model.safetensors
+   └─ loras/
+      └─ irodori_tts/
+         └─ adapter.safetensors
+```
 
-IrodoriTTSのモデルはComfyUI標準の`checkpoints`一覧から選択します。
+`IrodoriTTS Model Loader` のモデル一覧には、ComfyUI の `checkpoints` として認識された全ファイルが表示されます。Irodori-TTS 互換チェックポイントを選択してください。
 
-チェックポイント例:
+チェックポイントの `latent_dim` は読み込み時に自動判定され、対応する codec が選択されます。
 
-- [Aratako/Irodori-TTS-v4.1-Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)（推奨）
-- [Aratako/Irodori-TTS-500M-v3](https://huggingface.co/Aratako/Irodori-TTS-500M-v3)
-- [Aratako/Irodori-TTS-500M-v2](https://huggingface.co/Aratako/Irodori-TTS-500M-v2)
-- [Aratako/Irodori-TTS-500M-v2-VoiceDesign](https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign)
-- [Aratako/Irodori-TTS-500M](https://huggingface.co/Aratako/Irodori-TTS-500M)
+| `latent_dim` | codec |
+| --- | --- |
+| `32` | `Aratako/Semantic-DACVAE-Japanese-32dim` |
+| `128` | `facebook/dacvae-watermarked` |
 
-`Irodori-TTS-v4.1-Small` は参照音声による話者指定と VoiceDesign キャプションを同じチェックポイントで利用できます。内蔵の duration predictor が、文章に応じた音声長を自動推定します。
+tokenizer、codec、Character Voice の画像エンコーダーは初回利用時に Hugging Face から自動取得され、拡張機能内の `data` 以下へ保存されます。Kanomemo 系モデルは `ComfyUI/models/huggingface` にキャッシュされます。初回実行にはネットワーク接続が必要です。
 
-チェックポイントの`latent_dim`に応じて、内部で使用するcodecが自動選択されます。
+## 最小構成
 
-- `latent_dim = 32`: `Aratako/Semantic-DACVAE-Japanese-32dim`
-- `latent_dim = 128`: `facebook/dacvae-watermarked`
-
-codecとtokenizerは初回ロード時にHugging Faceから自動ダウンロードされます。手動で配置が必要なのは、基本的にIrodoriTTSのチェックポイントのみです。
-
-自動ダウンロードされたファイルは、このカスタムノード内の`data`ディレクトリに保存されます。
-
-- tokenizer: `custom_nodes/ComfyUI-Extensions/data/tokenizers`
-- codec: `custom_nodes/ComfyUI-Extensions/data/codecs/<repo_id>`
-- Character Voice画像エンコーダー: `custom_nodes/ComfyUI-Extensions/data/image_encoders`
-
-codecの`<repo_id>`部分は、`/`を`_`に置き換えたディレクトリ名になります。例: `facebook/dacvae-watermarked`は`custom_nodes/ComfyUI-Extensions/data/codecs/facebook_dacvae-watermarked`に保存されます。
-
-## 基本的な使い方
-
-![base](assets/base.png)
-
-最小構成では、次の2ノードだけで音声を生成できます。
-
-1. `IrodoriTTS Model Loader`
-2. `IrodoriTTS Sampler`
-
-接続:
+通常の音声生成は、次の2ノードだけで実行できます。
 
 ```text
 IrodoriTTS Model Loader
-  irodori_model_config
-    -> IrodoriTTS Sampler / model_config
+  └─ irodori_model_config → IrodoriTTS Sampler / model_config
+                                └─ audio
 ```
 
-`IrodoriTTS Sampler`の`text`に読み上げたい文章を入力し、`num_steps`でサンプリングステップ数、`seed`で乱数シードを指定します。duration predictor 対応モデル（v3/v4 系）では、文章に応じた音声長を自動推定します。
+1. `IrodoriTTS Model Loader` でチェックポイントと実行デバイスを選択します。
+2. `IrodoriTTS Sampler` の `text` に読み上げる文章を入力します。
+3. 必要に応じて `audio` を Preview Audio または `IrodoriTTS Save Audio` へ接続します。
 
-## 参照音声を使う
+通常の Irodori-TTS Sampler では音声長を文章から自動推定します。旧ワークフローの `seconds` や Duration 設定が残っていても生成時には使用されません。
 
-![reference_audio](assets/reference_audio.png)
+![最小構成](assets/base.png)
 
-話者や雰囲気を参照音声に寄せたい場合は、`IrodoriTTS Reference Audio`を追加して`IrodoriTTS Sampler`へ接続します。
-`Irodori-TTS-v4.1-Small`では VoiceDesign キャプションとも併用できます。旧 VoiceDesign 専用モデルでは参照音声を使いません。
+## Irodori-TTS ノード
 
-```text
-IrodoriTTS Reference Audio
-  irodori_ref_config
-    -> IrodoriTTS Sampler / ref_config
-```
+### 生成ノード
 
-参照ファイルはComfyUIの`input`フォルダから選択します。音声ファイルに加えて、動画ファイルも指定できます。動画を指定した場合はffmpegで音声を抽出します。
+| ノード | 役割 |
+| --- | --- |
+| `IrodoriTTS Model Loader` | チェックポイント、モデル/codec のデバイスと精度、runtime の保持方針を設定 |
+| `IrodoriTTS Sampler` | テキストと各種条件から ComfyUI の `AUDIO` を生成 |
+| `Irodori Character Voice Sampler` | Character Voice 対応チェックポイントと任意のキャラクター画像から音声を生成 |
+| `IrodoriTTS Save Audio` | `AUDIO` を ComfyUI の output ディレクトリへ WAV / MP3 / FLAC 形式で保存 |
 
-参照音声の音量差が大きい場合は、`normalize_ref_audio`を有効にしてください。長い参照音声は`max_ref_seconds`で先頭から使用する秒数を制限できます。
+`IrodoriTTS Sampler` は同一条件を最大16件までバッチ生成できます。`decode_mode = batch` は高速になる場合がありますが、`sequential` より多くの VRAM を使います。
 
-## VoiceDesignモデルを使う
+Character Voice Sampler では `seconds` で1～120秒の長さを指定します。画像は任意ですが、接続した場合はバッチの先頭1枚だけを条件として使用します。参照音声、VoiceDesign、LoRA、Schedule は Character Voice Sampler には接続できません。
 
-![voice_design](assets/voice_design.png)
+### 条件・補助ノード
 
-VoiceDesign対応モデルでは、`IrodoriTTS VoiceDesign Config`を接続して声質や話し方を文章で指定できます。`Irodori-TTS-v4.1-Small`では参照音声と組み合わせることもできます。
+| ノード | 役割 |
+| --- | --- |
+| `IrodoriTTS Reference Audio` | ComfyUI の input にある音声または動画から参照音声条件を作成 |
+| `IrodoriTTS VoiceDesign Config` | 対応モデルへ声質、話速、感情、話し方などの caption 条件を渡す |
+| `IrodoriTTS CFG Config` | text / speaker / caption / character の CFG 強度と適用範囲を設定 |
+| `IrodoriTTS Rescale Config` | truncation、rescale、speaker K/V 補正を設定 |
+| `IrodoriTTS Schedule Config` | RF サンプリングの `linear` / `sway` スケジュールを設定 |
+| `IrodoriTTS Trim Tail Config` | 音声末尾の無音・平坦部分を切り詰める判定値を設定 |
+| `IrodoriTTS LoRA Stack` | ComfyUI の `models/loras` から Irodori-TTS 用 LoRA を選択 |
+| `IrodoriTTS Emoji Picker` | Irodori-TTS で使いやすい絵文字を選ぶフロントエンド補助ノード |
 
-```text
-IrodoriTTS VoiceDesign Config
-  irodori_voice_design_config
-    -> IrodoriTTS Sampler / voice_design_config
-```
+現行の Irodori-TTS v4 runtime が一度に適用できる LoRA は1つです。LoRA Stack ノードを複数連結すると、Sampler はエラーにします。
 
-`caption`には声質、話速、感情、話し方などの説明文を入力します。キャプション条件の強度は`IrodoriTTS CFG Config`の`cfg_scale_caption`で調整します。
+参照音声に動画を指定した場合は `imageio-ffmpeg` またはシステムの `ffmpeg` で音声を抽出します。入力ファイルは ComfyUI の input ディレクトリに置いてください。
 
-キャプション条件を持たない旧モデルでは、このノードは接続不要です。
+各入力値の詳細は [docs/parameters.md](docs/parameters.md) を参照してください。
 
-## LoRAを使う
+## Kanomemo ノード
 
-![lora](assets/lora.png)
+Kanomemo ノードは、生成処理とは独立した画像解析・後処理ノードです。モデルは初回実行時に自動ダウンロードされます。
 
-IrodoriTTS向けLoRAはComfyUIの`models/loras`に配置し、`IrodoriTTS LoRA Stack`から選択します。
+| ノード | 入出力と用途 |
+| --- | --- |
+| `Kanomemo Image Analysis (imgutils)` | 画像1枚を解析し、`face` / `head` / `censor` / `nudenet` / `wd14` / `ocr` の結果を JSON で出力 |
+| `Kanomemo WD14 ViT Scores` | 指定タグの WD14 ViT スコアを JSON で出力 |
+| `Kanomemo Heatmap Censor (WD14 ViT)` | WD14 ViT のヒートマップを使い、対象領域を blur または pixelate |
+| `Kanomemo Object Mask (MobileSAM)` | 座標で指定した矩形をプロンプトとして MobileSAM のマスクを生成 |
+| `Kanomemo Character Segment (imgutils)` | ISNetIS でアニメキャラクターを抽出し、RGB 画像と前景マスクを出力 |
+| `Kanomemo Save RGBA` | RGB 画像と前景マスクを合成し、透過 PNG を output ディレクトリへ保存 |
 
-```text
-IrodoriTTS LoRA Stack
-  irodori_lora_stack
-    -> IrodoriTTS Sampler / lora_stack
-```
+`Kanomemo Image Analysis (imgutils)`、WD14 系ノード、MobileSAM ノードは現状1枚の RGB 画像を受け取る設計です。Character Segment と Save RGBA はバッチを処理できます。Character Segment の `scale` は実装上 `1024` 固定です。
 
-複数のLoRAを使う場合は、`IrodoriTTS LoRA Stack`の`prev`に前段の出力を接続して積み重ねます。
+## モデル保持とメモリ設定
 
-`strength`はLoRAの適用強度です。`1.0`が標準、`0.0`は実質無効です。
+`IrodoriTTS Model Loader` の `runtime_cache_policy` で生成後の状態を選択できます。
 
-## ノード一覧
+| 値 | 動作 |
+| --- | --- |
+| `offload_after_use` | runtime を維持しつつ CPU 側へ退避。標準設定 |
+| `keep_gpu` | GPU 上に維持。連続生成は速いが VRAM を占有 |
+| `unload_after_use` | 生成後に runtime を破棄。再生成時は再読み込み |
 
-### IrodoriTTS Model Loader
+低 VRAM 環境では、まず次を試してください。
 
-![model_loader_node](assets/model_loader_node.png)
+- `codec_device = cpu`、`codec_precision = fp32`
+- `decode_mode = sequential`
+- `runtime_cache_policy = offload_after_use` または `unload_after_use`
+- `batch_size = 1`
+- `compile_model = false`
 
-IrodoriTTSのチェックポイントと実行設定をまとめた`irodori_model_config`を出力します。
+CPU デバイスを選んだ状態で `bf16` や `fp16` を指定した場合、Model Loader は安全のため `fp32` に変更します。
 
-主な入力:
+## 出力先
 
-- `model`: 使用するチェックポイント
-- `model_device`: TTSモデルを実行するデバイス
-- `model_precision`: TTSモデルの計算精度
-- `codec_device`: codecを実行するデバイス
-- `codec_precision`: codecの計算精度
-- `enable_watermark`: codec側のウォーターマーク処理
-- `compile_model`: `torch.compile`の使用
-- `compile_dynamic`: `torch.compile`のdynamicモード
-- `runtime_cache_policy`: 生成後のモデル保持方針
+- 音声: `ComfyUI/output/<filename_prefix>...`
+- 透過 PNG: `ComfyUI/output/<filename_prefix>...`
+- Irodori tokenizer: `custom_nodes/ComfyUI-Extensions/data/tokenizers`
+- Irodori codec: `custom_nodes/ComfyUI-Extensions/data/codecs/<repo_id>`
+- Character Voice 画像エンコーダー: `custom_nodes/ComfyUI-Extensions/data/image_encoders`
+- Kanomemo / imgutils: `ComfyUI/models/huggingface`
 
-通常は`model_device = cuda`、`model_precision = bf16`または`fp32`、`codec_device = cpu`または`cuda`から環境に合わせて選びます。v4.1 では`runtime_cache_policy = offload_after_use`を選ぶと、VRAMを確実に解放するため生成後にruntimeを破棄します。
-
-> [!WARNING]
-> 旧版における `huggingface` からモデルをDLするノードは削除されました。
-
-### IrodoriTTS Sampler
-
-![sampler_node](assets/sampler_node.png)
-
-テキストから音声を生成します。出力はComfyUI標準の`AUDIO`です。
-
-主な入力:
-
-- `model_config`: `IrodoriTTS Model Loader`の出力
-- `text`: 読み上げるテキスト
-- `seed`: 生成シード
-- `num_steps`: サンプリングステップ数
-- `batch_size`: 同一条件で生成する候補数
-- `decode_mode`: codecデコード方式
-- `trim_tail`: 末尾の無音や平坦化部分の切り詰め
-
-任意入力:
-
-- `lora_stack`: LoRA設定
-- `ref_config`: 参照音声設定
-- `voice_design_config`: VoiceDesign用キャプション設定
-- `cfg_config`: CFG詳細設定
-- `rescale_config`: Rescale・speaker K/V補正設定
-- `schedule_config`: RFサンプリングの時刻スケジュール設定
-- `trim_tail_config`: 末尾切り詰め判定の詳細設定
-
-### IrodoriTTS Save Audio
-
-`IrodoriTTS Sampler`の`audio`を保存する出力ノードです。`format`で`wav`（標準）、`mp3`、`flac`を選べます。MP3では`mp3_quality`で`V0`、`128k`、`320k`を選択できます。
-
-### IrodoriTTS Reference Audio
-
-![reference_audio_node](assets/reference_audio_node.png)
-
-参照音声設定を作成します。
-
-主な入力:
-
-- `audio`: ComfyUIの`input`フォルダ内の音声または動画
-- `normalize_ref_audio`: 参照音声を-16dB基準で正規化
-- `max_ref_seconds`: 参照として使う最大秒数
-
-動画を使う場合は、`imageio-ffmpeg`またはシステムの`ffmpeg`が必要です。
-
-### IrodoriTTS VoiceDesign Config
-
-![voice_design_node](assets/voice_design_node.png)
-
-VoiceDesignモデル向けのキャプション設定を作成します。
-
-主な入力:
-
-- `caption`: 声質・話し方・感情などの説明文
-- `max_caption_len`: キャプションtoken長の上限
-
-### IrodoriTTS CFG Config
-
-![cfg_config_node](assets/cfg_config_node.png)
-
-CFGの詳細設定を作成します。
-
-主な入力:
-
-- `cfg_guidance_mode`: `independent`、`joint`、`alternating`
-- `cfg_scale_text`: テキスト条件の強度
-- `cfg_scale_speaker`: 話者条件の強度
-- `cfg_scale_caption`: VoiceDesignキャプション条件の強度
-- `cfg_scale_character`: Character Voice画像条件の強度
-- `cfg_scale_override`: 全CFG条件の共通強度
-- `cfg_min_t`: CFGを適用する拡散時刻の下限
-- `cfg_max_t`: CFGを適用する拡散時刻の上限
-
-`cfg_guidance_mode = joint`では有効なCFG条件の強度が同一である必要があります。`cfg_scale_override = 0`のまま`joint`を選んだ場合は、`cfg_scale_text`を共通強度として使用します。
-
-まずは未接続の標準値で試し、必要に応じて調整してください。
-
-### IrodoriTTS Rescale Config
-
-![rescale_config_node](assets/rescale_config_node.png)
-
-潜在の振れ幅や話者条件を補正する詳細設定を作成します。
-
-主な入力:
-
-- `truncation_factor`: 潜在の振れ幅を抑える係数
-- `rescale_k`: Rescale補正の強さ
-- `rescale_sigma`: Rescale補正のsigma
-- `speaker_kv_scale`: 話者条件K/Vの強調
-- `speaker_kv_min_t`: speaker K/V補正を適用し始める拡散時刻
-- `speaker_kv_max_layers`: speaker K/V補正を適用する最大レイヤー数
-
-各値は`0`以下で無効になります。
-
-### IrodoriTTS Schedule Config
-
-![schedule_config_node](assets/schedule_config_node.png)
-
-RFサンプリングの時刻スケジュール設定を作成します。
-
-主な入力:
-
-- `schedule_mode`: `linear`、`sway`
-- `sway_coeff`: `sway`時のスケジュール係数
-
-未接続時は`linear`で生成します。通常は`linear`で試し、生成の安定性や質感を比較したい場合に`sway`を使用します。
-
-### IrodoriTTS Trim Tail Config
-
-![trim_tail_config_node](assets/trim_tail_config_node.png)
-
-末尾切り詰め判定の詳細設定を作成します。
-
-主な入力:
-
-- `tail_window_size`: 末尾判定に使う潜在窓サイズ
-- `tail_std_threshold`: 標準偏差しきい値
-- `tail_mean_threshold`: 平均値しきい値
-
-Samplerの`trim_tail`が有効なときに使用されます。未接続時は`tail_window_size = 20`、`tail_std_threshold = 0.05`、`tail_mean_threshold = 0.1`を使用します。
-
-### IrodoriTTS LoRA Stack
-
-![lora_node](assets/lora_node.png)
-
-IrodoriTTS向けLoRAを選択し、Samplerへ渡すためのスタックを作成します。
-
-主な入力:
-
-- `prev`: 前段のLoRA Stack
-- `lora`: 追加するLoRA
-- `strength`: 適用強度
-
-### IrodoriTTS Emoji Picker
-
-![emoji_node](assets/emoji_node.png)
-
-IrodoriTTSで使いやすい絵文字を選ぶためのUIノードです。ワークフロー上の生成処理には出力を接続しません。
-
-### Irodori Character Voice Sampler
-
-キャラクター画像を条件に音声を生成します。`IrodoriTTS Model Loader`の出力を接続し、Character Voice対応チェックポイントを選択して使用します。
-
-主な入力:
-
-- `model_config`: `IrodoriTTS Model Loader`の出力
-- `character_image`: 声質や話し方の条件に使うキャラクター画像。未接続の場合は画像条件なしで生成します。
-- `text`: 読み上げるテキスト
-- `seed`: 生成シード
-- `seconds`: 生成する音声長
-- `num_steps`: サンプリングステップ数
-
-既存の`IrodoriTTS CFG Config`、`IrodoriTTS Rescale Config`、`IrodoriTTS Trim Tail Config`を任意で接続できます。キャラクター画像条件の強度は`IrodoriTTS CFG Config`の`cfg_scale_character`で調整します。参照音声やVoiceDesignキャプションは使用しません。
-
-## 生成設定の目安
-
-- まずは`num_steps = 40`で試します。v3/v4 系の音声長はテキストから自動推定されます。
-- 同じ設定で別候補を出したい場合は`seed`を変更します。
-- 音声の末尾が長く残る場合は`trim_tail`を有効にします。
-- VRAMが厳しい場合は`codec_device = cpu`や`decode_mode = sequential`を試してください。
-- 参照音声の影響が弱い場合は、`IrodoriTTS CFG Config`の`cfg_scale_speaker`を少し上げます。
+codec の `<repo_id>` は `/` を `_` に置き換えた名前です。
 
 ## トラブルシューティング
 
-### モデルが一覧に表示されない
+### ノードが表示されない
 
-チェックポイントを`ComfyUI/models/checkpoints`配下に配置し、ComfyUIを再起動してください。
+ComfyUI の起動ログで `ComfyUI-Extensions` の import エラーを確認し、ComfyUI が実際に使用している Python で依存関係を再インストールしてください。この拡張は `comfy_api.latest` を使うため、古い ComfyUI では読み込めません。
 
-### 動画から参照音声を使えない
+### チェックポイントが一覧にない
 
-`requirements.txt`に含まれる`imageio-ffmpeg`をインストールするか、システムに`ffmpeg`をインストールしてください。
+ファイルを `ComfyUI/models/checkpoints` 以下へ配置し、ComfyUI を再起動またはモデル一覧を更新してください。ファイルが表示されても、Irodori-TTS 互換でなければ読み込み時にエラーになります。
 
-### メモリ不足になる
+### 初回実行が長い
 
-以下を順に試してください。
+tokenizer、codec、画像エンコーダー、imgutils、MobileSAM などを初回に取得します。進捗は ComfyUI のコンソールで確認できます。ダウンロード途中で停止した場合は、ネットワーク接続と Hugging Face へのアクセスを確認してください。
 
-- `batch_size`を`1`にする
-- `decode_mode`を`sequential`にする
-- `codec_device`を`cpu`にする
-- 長い文章を複数の生成に分ける
-- `num_steps`を下げる
+### MP3 / FLAC を保存できない
 
-### 生成結果がテキストに追従しにくい
+ComfyUI の音声保存ヘルパーと codec 環境を利用します。まず WAV 保存を確認し、失敗する場合は ComfyUI と `torchcodec`、FFmpeg の組み合わせを確認してください。
 
-`IrodoriTTS CFG Config`を接続し、`cfg_scale_text`を少し上げてください。上げすぎると音質や自然さが崩れる場合があります。
+### VRAM 不足になる
+
+上記の低 VRAM 設定を適用してください。Kanomemo の MobileSAM は CUDA が利用可能な場合に `cuda:0` を使用するため、TTS と同じプロセスで続けて実行する場合は VRAM 使用量にも注意してください。
 
 ## ライセンス
 
-このカスタムノードのライセンスはリポジトリ内の[LICENSE](./LICENSE)を確認してください。
-
-Irodori-TTS本体、Emoji-TTS、および各モデルのライセンスは、それぞれの配布元を確認してください。
+このリポジトリのコードは [MIT License](LICENSE) で提供されます。ダウンロードされる各モデル、データ、依存ライブラリにはそれぞれのライセンスが適用されます。
