@@ -164,7 +164,7 @@ IrodoriTTSのチェックポイントと実行設定をまとめた`irodori_mode
 - `compile_dynamic`: `torch.compile`のdynamicモード
 - `runtime_cache_policy`: 生成後のモデル保持方針
 
-通常は`model_device = cuda`、`model_precision = bf16`または`fp32`、`codec_device = cpu`または`cuda`から環境に合わせて選びます。`runtime_cache_policy = offload_after_use`では生成後にモデルをCPUへ退避し、次回生成時に再びGPUへ戻します。
+通常は`model_device = cuda`、`model_precision = bf16`または`fp32`、`codec_device = cpu`または`cuda`から環境に合わせて選びます。v4.1 では`runtime_cache_policy = offload_after_use`を選ぶと、VRAMを確実に解放するため生成後にruntimeを破棄します。
 
 > [!WARNING]
 > 旧版における `huggingface` からモデルをDLするノードは削除されました。

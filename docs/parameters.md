@@ -19,13 +19,13 @@ IrodoriTTSのチェックポイントと実行設定をまとめ、`irodori_mode
 | --- | --- | --- |
 | `model` | checkpoint一覧 | 使用するIrodoriTTSチェックポイントです。ComfyUIの`models/checkpoints`に配置したファイルから選びます。 |
 | `model_device` | 環境依存 | TTSモデルを実行するデバイスです。通常は`cuda`を使用します。 |
-| `model_precision` | 環境依存 | TTSモデルの計算精度です。GPUでは`bf16`または`fp16`、互換性重視では`fp32`を選びます。 |
+| `model_precision` | 環境依存 | TTSモデルの計算精度です。GPUでは`bf16`、互換性重視では`fp32`を選びます。 |
 | `codec_device` | 環境依存 | codecを実行するデバイスです。VRAMを節約したい場合は`cpu`を選びます。 |
 | `codec_precision` | 環境依存 | codecの計算精度です。互換性重視では`fp32`を選びます。 |
 | `enable_watermark` | `False` | codec側のウォーターマーク処理を有効化します。通常は無効のままで構いません。 |
 | `compile_model` | `False` | `torch.compile`でTTSモデルをコンパイルします。初回生成は遅くなりますが、環境によっては以後の生成が速くなります。 |
 | `compile_dynamic` | `False` | `torch.compile`のdynamicモードを使います。入力長が変わる運用で試すための設定です。 |
-| `runtime_cache_policy` | `offload_after_use` | 生成後のruntime保持方針です。`offload_after_use`はキャッシュを残してCPUへ退避、`keep_gpu`はGPU上に保持、`unload_after_use`は生成後に完全破棄します。 |
+| `runtime_cache_policy` | `offload_after_use` | 生成後のruntime保持方針です。`offload_after_use`はv4.1での低VRAM運用向けに生成後のruntimeを解放し、`keep_gpu`はGPU上に保持、`unload_after_use`は生成後に完全破棄します。 |
 
 チェックポイントの`latent_dim`に応じて、使用するcodecは内部で自動選択されます。
 

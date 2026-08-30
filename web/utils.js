@@ -1,7 +1,7 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
 
-const AUTHOR = "jupo";
+const NODE_NAMESPACE = "ComfyUIExtensions";
 
 export function $el(...args) {
     const fn = window.comfyAPI?.ui?.$el;
@@ -15,7 +15,7 @@ export function $el(...args) {
 // ユニークなIDを作成
 // ==============================================
 export function mkName() {
-    const parts = [AUTHOR, ...arguments];
+    const parts = [NODE_NAMESPACE, ...arguments];
     return parts.join(".");
 }
 
@@ -173,7 +173,7 @@ export class Path {
 // エンドポイント
 // ==============================================
 export function endpoint(packageName, url) {
-    return `/${AUTHOR}/${packageName}/${url}`;
+    return `/${NODE_NAMESPACE}/${packageName}/${url}`;
 }
 
 export async function apiGet(packageName, url, { signal } = {}) {

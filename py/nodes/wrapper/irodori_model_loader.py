@@ -82,7 +82,7 @@ class IrodoriModelLoader(io.ComfyNode):
                     "runtime_cache_policy",
                     options=["offload_after_use", "keep_gpu", "unload_after_use"],
                     default="offload_after_use",
-                    tooltip="生成後のモデル保持方針です。offload_after_useはCPUへ退避、keep_gpuはGPU保持、unload_after_useは完全破棄します。",
+                    tooltip="生成後のモデル保持方針です。offload_after_useは低VRAM向けにruntimeを解放、keep_gpuはGPU保持、unload_after_useは完全破棄します。",
                 ),
             ],
             outputs=[

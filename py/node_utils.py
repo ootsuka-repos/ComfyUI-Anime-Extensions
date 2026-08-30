@@ -1,15 +1,15 @@
 from functools import wraps
 from pathlib import Path
 
-AUTHOR = "jupo"
+NODE_NAMESPACE = "ComfyUIExtensions"
 ROOT_DIR = Path(__file__).parent.parent
 
 def mk_name(*args):
-    parts = [AUTHOR] + list(args)
+    parts = [NODE_NAMESPACE] + list(args)
     return ".".join(parts)
 
 def mk_category(*args):
-    parts = [AUTHOR] + list(args)
+    parts = [NODE_NAMESPACE] + list(args)
     return "/".join(parts)
 
 
@@ -22,7 +22,7 @@ class Endpoint:
     
     @classmethod
     def _endpoint(cls, *args):
-        parts = [AUTHOR] + list(args)
+        parts = [NODE_NAMESPACE] + list(args)
         path = "/".join(parts)
         return f"/{path}"
     
