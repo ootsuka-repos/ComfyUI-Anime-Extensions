@@ -199,8 +199,8 @@ class IrodoriTTSSampler(io.ComfyNode):
             ref_ensure_max=bool(ref_config.get("ref_ensure_max", False)),
             num_candidates=int(batch_size),
             decode_mode=str(decode_mode),
-            # Duration is always inferred from the text. Legacy duration inputs
-            # are accepted only so workflows saved with older versions still load.
+            # Duration is always inferred from the text. Legacy duration kwargs,
+            # if supplied during workflow migration, are intentionally ignored.
             seconds=None,
             duration_scale=1.0,
             min_seconds=0.5,
