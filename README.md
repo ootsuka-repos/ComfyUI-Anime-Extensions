@@ -60,7 +60,7 @@ IrodoriTTSのモデルはComfyUI標準の`checkpoints`一覧から選択しま�
 - [Aratako/Irodori-TTS-500M-v2-VoiceDesign](https://huggingface.co/Aratako/Irodori-TTS-500M-v2-VoiceDesign)
 - [Aratako/Irodori-TTS-500M](https://huggingface.co/Aratako/Irodori-TTS-500M)
 
-`Irodori-TTS-v4.1-Small` は参照音声による話者指定と VoiceDesign キャプションを同じチェックポイントで利用できます。`seconds = 0` を指定すると、内蔵の duration predictor で音声長を自動推定します。
+`Irodori-TTS-v4.1-Small` は参照音声による話者指定と VoiceDesign キャプションを同じチェックポイントで利用できます。内蔵の duration predictor が、文章に応じた音声長を自動推定します。
 
 チェックポイントの`latent_dim`に応じて、内部で使用するcodecが自動選択されます。
 
@@ -94,7 +94,7 @@ IrodoriTTS Model Loader
     -> IrodoriTTS Sampler / model_config
 ```
 
-`IrodoriTTS Sampler`の`text`に読み上げたい文章を入力し、`seconds`で生成秒数、`num_steps`でサンプリングステップ数、`seed`で乱数シードを指定します。duration predictor 対応モデル（v3/v4 系）では`seconds = 0`で自動秒数推定を使用できます。
+`IrodoriTTS Sampler`の`text`に読み上げたい文章を入力し、`num_steps`でサンプリングステップ数、`seed`で乱数シードを指定します。duration predictor 対応モデル（v3/v4 系）では、文章に応じた音声長を自動推定します。
 
 ## 参照音声を使う
 
@@ -181,9 +181,6 @@ IrodoriTTSのチェックポイントと実行設定をまとめた`irodori_mode
 - `model_config`: `IrodoriTTS Model Loader`の出力
 - `text`: 読み上げるテキスト
 - `seed`: 生成シード
-- `seconds`: 生成する音声長
-  - duration predictor 対応モデル（v3/v4 系）では、`0` で自動推定がONになります。
-  - v1, v2モデルで `0` が指定されていると30にフォールバックされます
 - `num_steps`: サンプリングステップ数
 - `batch_size`: 同一条件で生成する候補数
 - `decode_mode`: codecデコード方式
@@ -195,7 +192,6 @@ IrodoriTTSのチェックポイントと実行設定をまとめた`irodori_mode
 - `ref_config`: 参照音声設定
 - `voice_design_config`: VoiceDesign用キャプション設定
 - `cfg_config`: CFG詳細設定
-- `duration_config`: duration predictor による自動秒数推定の詳細設定
 - `rescale_config`: Rescale・speaker K/V補正設定
 - `schedule_config`: RFサンプリングの時刻スケジュール設定
 - `trim_tail_config`: 末尾切り詰め判定の詳細設定
@@ -249,20 +245,6 @@ CFGの詳細設定を作成します。
 `cfg_guidance_mode = joint`では有効なCFG条件の強度が同一である必要があります。`cfg_scale_override = 0`のまま`joint`を選んだ場合は、`cfg_scale_text`を共通強度として使用します。
 
 まずは未接続の標準値で試し、必要に応じて調整してください。
-
-### IrodoriTTS Duration Config
-
-![duration_config_node](assets/duration_config_node.png)
-
-v3モデルの自動秒数推定に関する詳細設定を作成します。
-
-主な入力:
-
-- `duration_scale`: 自動推定された秒数の倍率
-- `min_seconds`: 自動推定で許可する最短秒数
-- `max_seconds`: 自動推定で許可する最長秒数
-
-Samplerの`seconds`が`0`のときに自動推定が有効になります。未接続時は`duration_scale = 1.0`、`min_seconds = 0.5`、`max_seconds = 30.0`を使用します。
 
 ### IrodoriTTS Rescale Config
 
@@ -343,7 +325,7 @@ IrodoriTTSで使いやすい絵文字を選ぶためのUIノードです。ワ�
 
 ## 生成設定の目安
 
-- まずは`num_steps = 40`、`seconds`は生成したい音声より少し長めに設定します。
+- まずは`num_steps = 40`で試します。v3/v4 系の音声長はテキストから自動推定されます。
 - 同じ設定で別候補を出したい場合は`seed`を変更します。
 - 音声の末尾が長く残る場合は`trim_tail`を有効にします。
 - VRAMが厳しい場合は`codec_device = cpu`や`decode_mode = sequential`を試してください。
@@ -366,7 +348,7 @@ IrodoriTTSで使いやすい絵文字を選ぶためのUIノードです。ワ�
 - `batch_size`を`1`にする
 - `decode_mode`を`sequential`にする
 - `codec_device`を`cpu`にする
-- `seconds`を短くする
+- 長い文章を複数の生成に分ける
 - `num_steps`を下げる
 
 ### 生成結果がテキストに追従しにくい

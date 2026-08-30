@@ -40,7 +40,6 @@ IrodoriTTSのチェックポイントと実行設定をまとめ、`irodori_mode
 | `model_config` | - | `IrodoriTTS Model Loader`の出力を接続します。 |
 | `text` | - | 読み上げるテキストです。改行を含めた長文も指定できます。 |
 | `seed` | `0` | 生成シードです。同じ条件で別候補を生成したい場合は値を変えます。 |
-| `seconds` | `0.0` | 生成する音声長です。duration predictor 対応モデル（v3/v4 系）では`0`を指定すると自動秒数推定を使います。v1/v2モデルや推定器がない場合、`0`は30秒にフォールバックします。 |
 | `num_steps` | `40` | サンプリングステップ数です。大きいほど時間がかかりますが、品質や安定性が変わる場合があります。 |
 
 ### Optional Config Inputs
@@ -51,7 +50,6 @@ IrodoriTTSのチェックポイントと実行設定をまとめ、`irodori_mode
 | `ref_config` | `IrodoriTTS Reference Audio` | 参照音声による話者・雰囲気の指定を行います。 |
 | `voice_design_config` | `IrodoriTTS VoiceDesign Config` | VoiceDesignモデル向けの声質・話し方キャプションを指定します。 |
 | `cfg_config` | `IrodoriTTS CFG Config` | テキスト、話者、VoiceDesignキャプション、Character Voice画像条件、適用時刻などのCFG詳細を指定します。 |
-| `duration_config` | `IrodoriTTS Duration Config` | duration predictor 対応モデル（v3/v4 系）の自動秒数推定を補正します。Samplerの`seconds = 0`時に意味があります。 |
 | `rescale_config` | `IrodoriTTS Rescale Config` | 潜在の振れ幅やspeaker K/V補正を指定します。 |
 | `schedule_config` | `IrodoriTTS Schedule Config` | RFサンプリングの時刻スケジュールを指定します。 |
 | `trim_tail_config` | `IrodoriTTS Trim Tail Config` | 末尾切り詰め判定のしきい値を指定します。Samplerの`trim_tail`が有効なときに使われます。 |
@@ -107,18 +105,6 @@ CFGの詳細設定を作成し、Samplerの`cfg_config`へ接続します。
 | `cfg_max_t` | `1.0` | CFGを適用する拡散時刻の上限です。 |
 
 まずは未接続の標準値で生成し、必要な条件だけ調整するのがおすすめです。
-
-## IrodoriTTS Duration Config
-
-duration predictor 対応モデル（v3/v4 系）の自動秒数推定を補正し、Samplerの`duration_config`へ接続します。
-
-| Input | Default | 説明 |
-| --- | --- | --- |
-| `duration_scale` | `1.0` | 自動推定された秒数に掛ける倍率です。長めにしたい場合は上げ、短めにしたい場合は下げます。 |
-| `min_seconds` | `0.5` | 自動推定で許可する最短秒数です。 |
-| `max_seconds` | `30.0` | 自動推定で許可する最長秒数です。 |
-
-Samplerの`seconds`が`0`のときに使用されます。`seconds`に正の値を指定した場合、このConfigは生成秒数に影響しません。
 
 ## IrodoriTTS Rescale Config
 

@@ -15,7 +15,6 @@ from ...node_utils import mk_name
 from .common import CATEGORY, PACKAGE_NAME
 from .irodori_common import (
     IO_CFG_CONFIG,
-    IO_DURATION_CONFIG,
     IO_LORA_STACK,
     IO_MODEL_CONFIG,
     IO_REF_CONFIG,
@@ -52,14 +51,6 @@ class IrodoriTTSSampler(io.ComfyNode):
                     max=sys.maxsize,
                     tooltip="生成に使用する乱数seedです。同じ設定なら同じ結果を再現します。",
                 ),
-                io.Float.Input(
-                    "seconds",
-                    default=0.0,
-                    min=0.0,
-                    max=120.0,
-                    step=0.5,
-                    tooltip="生成する音声長です。0ならduration predictor対応モデル（v3/v4系）では自動推定し、推定器のないモデルでは30秒にフォールバックします。",
-                ),
                 io.Int.Input(
                     "num_steps",
                     default=40,
@@ -86,11 +77,6 @@ class IrodoriTTSSampler(io.ComfyNode):
                     "cfg_config",
                     optional=True,
                     tooltip="CFGの詳細設定です。未接続なら標準値を使用します。",
-                ),
-                IO_DURATION_CONFIG.Input(
-                    "duration_config",
-                    optional=True,
-                    tooltip="duration predictor対応モデル（v3/v4系）の自動秒数推定設定です。未接続なら標準値を使用します。",
                 ),
                 IO_RESCALE_CONFIG.Input(
                     "rescale_config",
@@ -149,7 +135,6 @@ class IrodoriTTSSampler(io.ComfyNode):
         model_config: dict,
         text: str,
         seed: int,
-        seconds: float,
         num_steps: int,
         batch_size: int,
         decode_mode: str,
@@ -160,10 +145,11 @@ class IrodoriTTSSampler(io.ComfyNode):
         ref_config: dict | None = None,
         voice_design_config: dict | None = None,
         cfg_config: dict | None = None,
-        duration_config: dict | None = None,
         rescale_config: dict | None = None,
         schedule_config: dict | None = None,
         trim_tail_config: dict | None = None,
+        seconds: float | None = None,
+        duration_config: dict | None = None,
     ):
         lora_stack = list(lora_stack or [])
         lora_paths = tuple(str(item["path"]) for item in lora_stack if item.get("path"))
@@ -189,7 +175,6 @@ class IrodoriTTSSampler(io.ComfyNode):
         ref_config = ref_config or {}
         voice_design_config = voice_design_config or {}
         cfg_config = cfg_config or {}
-        duration_config = duration_config or {}
         rescale_config = rescale_config or {}
         schedule_config = schedule_config or {}
         trim_tail_config = trim_tail_config or {}
@@ -214,10 +199,12 @@ class IrodoriTTSSampler(io.ComfyNode):
             ref_ensure_max=bool(ref_config.get("ref_ensure_max", False)),
             num_candidates=int(batch_size),
             decode_mode=str(decode_mode),
-            seconds=none_if_non_positive(float(seconds)),
-            duration_scale=float(duration_config.get("duration_scale", 1.0)),
-            min_seconds=float(duration_config.get("min_seconds", 0.5)),
-            max_seconds=float(duration_config.get("max_seconds", 30.0)),
+            # Duration is always inferred from the text. Legacy duration inputs
+            # are accepted only so workflows saved with older versions still load.
+            seconds=None,
+            duration_scale=1.0,
+            min_seconds=0.5,
+            max_seconds=30.0,
             max_ref_seconds=ref_config.get("max_ref_seconds", None),
             max_text_len=none_if_non_positive(int(max_text_len)),
             max_caption_len=voice_design_config.get("max_caption_len", None),
