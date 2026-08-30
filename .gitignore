@@ -206,10 +206,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Runtime data and downloaded assets
-data/*
-!data/.gitkeep
-
 # Reference repositories
 reference/
 

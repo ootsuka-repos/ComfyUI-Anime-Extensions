@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import folder_paths
+
 
 def extension_data_dir() -> Path:
-    return Path(__file__).resolve().parents[3] / "data"
+    root = Path(folder_paths.models_dir) / "irodori"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
 
 
 def image_encoder_cache_root() -> Path:
