@@ -68,12 +68,17 @@ def _load_model() -> tuple:
             raise RuntimeError(
                 "Kanomemo heatmap nodes require pandas, timm, and huggingface_hub"
             ) from exc
-        device = _device()
-        model = timm.create_model(f"hf-hub:{MODEL_REPO}", pretrained=True)
-        model.eval().to(device)
-        csv_path = hf_hub_download(repo_id=MODEL_REPO, filename="selected_tags.csv")
-        labels = tuple(str(value) for value in pd.read_csv(csv_path)["name"])
-        transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
+        # ComfyUI invokes a node inside ``torch.inference_mode()``.  Models and
+        # tensors constructed in that context become inference tensors, which
+        # cannot participate in the Grad-CAM pass below.  Create the cached
+        # model outside it even on the first node invocation.
+        with torch.inference_mode(False):
+            device = _device()
+            model = timm.create_model(f"hf-hub:{MODEL_REPO}", pretrained=True)
+            model.eval().to(device)
+            csv_path = hf_hub_download(repo_id=MODEL_REPO, filename="selected_tags.csv")
+            labels = tuple(str(value) for value in pd.read_csv(csv_path)["name"])
+            transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         _MODEL = model, labels, transform, device
         return _MODEL
 
@@ -110,10 +115,20 @@ def heatmap_tag_masks(
         model, labels, transform, device = _load_model()
 
         def tag_heatmaps(source: Image.Image):
-            x = transform(source.convert("RGB")).unsqueeze(0)[:, [2, 1, 0]].to(device)
-            x.requires_grad_(False)
-            with torch.enable_grad():
+            # ``enable_grad`` alone does not undo ComfyUI's surrounding
+            # inference-mode context.  The complete forward/gradient pass must
+            # run with ordinary tensors or ``retain_grad`` raises
+            # "can't retain_grad on Tensor that has requires_grad=False".
+            with torch.inference_mode(False), torch.enable_grad():
+                x = transform(source.convert("RGB")).unsqueeze(0)[:, [2, 1, 0]].to(device)
+                x.requires_grad_(False)
                 features = model.forward_features(x)
+                if not features.requires_grad:
+                    # Some compatible classifiers expose feature maps detached
+                    # from their parameter graph.  Grad-CAM only differentiates
+                    # the head with respect to these maps, so make that explicit
+                    # rather than silently emitting an empty censor mask.
+                    features = features.detach().requires_grad_(True)
                 features.retain_grad()
                 probabilities = torch.sigmoid(model.forward_head(features)).squeeze(0)
                 probabilities_cpu = probabilities.detach().to(device="cpu")
@@ -131,14 +146,14 @@ def heatmap_tag_masks(
                     grad_outputs=torch.eye(len(picked), device=device),
                     is_grads_batched=True,
                 )[0]
-            values = gradients.detach().mean(2, keepdim=True).mul(features.detach().unsqueeze(0)).mean(-1)
-            token_count = values.shape[-1]
-            side = int(token_count ** 0.5)
-            if side * side != token_count:
-                values = values[..., -side * side:]
-            values = torch.clamp(values.reshape(len(picked), side, side), min=0)
-            maxima = values.reshape(len(picked), -1).max(-1)[0].clamp(min=1e-6)
-            return picked, values / maxima[:, None, None]
+                values = gradients.detach().mean(2, keepdim=True).mul(features.detach().unsqueeze(0)).mean(-1)
+                token_count = values.shape[-1]
+                side = int(token_count ** 0.5)
+                if side * side != token_count:
+                    values = values[..., -side * side:]
+                values = torch.clamp(values.reshape(len(picked), side, side), min=0)
+                maxima = values.reshape(len(picked), -1).max(-1)[0].clamp(min=1e-6)
+                return picked, values / maxima[:, None, None]
 
         source = image.convert("RGB")
         picked, heatmaps = tag_heatmaps(source)
