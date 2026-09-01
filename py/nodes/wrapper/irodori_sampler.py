@@ -1,3 +1,4 @@
+import math
 import sys
 
 import comfy.utils
@@ -50,6 +51,18 @@ class IrodoriTTSSampler(io.ComfyNode):
                     min=0,
                     max=sys.maxsize,
                     tooltip="生成に使用する乱数seedです。同じ設定なら同じ結果を再現します。",
+                ),
+                io.Float.Input(
+                    "duration_scale",
+                    optional=True,
+                    default=1.0,
+                    min=0.1,
+                    max=3.0,
+                    step=0.01,
+                    tooltip=(
+                        "テキストから自動推定した音声長に掛ける倍率です。"
+                        "1.0 は推定どおり、低い値は短く、高い値は長くします。"
+                    ),
                 ),
                 io.Int.Input(
                     "num_steps",
@@ -148,6 +161,7 @@ class IrodoriTTSSampler(io.ComfyNode):
         rescale_config: dict | None = None,
         schedule_config: dict | None = None,
         trim_tail_config: dict | None = None,
+        duration_scale: float | None = 1.0,
         seconds: float | None = None,
         duration_config: dict | None = None,
     ):
@@ -178,6 +192,11 @@ class IrodoriTTSSampler(io.ComfyNode):
         rescale_config = rescale_config or {}
         schedule_config = schedule_config or {}
         trim_tail_config = trim_tail_config or {}
+        if isinstance(duration_scale, bool):
+            raise TypeError("duration_scale must be a finite number between 0.1 and 3.0")
+        duration_scale = 1.0 if duration_scale is None else float(duration_scale)
+        if not math.isfinite(duration_scale) or not 0.1 <= duration_scale <= 3.0:
+            raise ValueError("duration_scale must be a finite number between 0.1 and 3.0")
 
         cfg_guidance_mode = cfg_config.get("cfg_guidance_mode", "independent")
         cfg_scale_text = float(cfg_config.get("cfg_scale_text", 3.0))
@@ -199,10 +218,11 @@ class IrodoriTTSSampler(io.ComfyNode):
             ref_ensure_max=bool(ref_config.get("ref_ensure_max", False)),
             num_candidates=int(batch_size),
             decode_mode=str(decode_mode),
-            # Duration is always inferred from the text. Legacy duration kwargs,
-            # if supplied during workflow migration, are intentionally ignored.
+            # Text still determines the base duration. The scale only adjusts
+            # the duration predictor's result; legacy manual-duration kwargs
+            # stay ignored for compatibility with the automatic-duration policy.
             seconds=None,
-            duration_scale=1.0,
+            duration_scale=duration_scale,
             min_seconds=0.5,
             max_seconds=30.0,
             max_ref_seconds=ref_config.get("max_ref_seconds", None),
