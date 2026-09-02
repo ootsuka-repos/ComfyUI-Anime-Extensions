@@ -150,7 +150,13 @@ def _mobile_sam_model():
             checkpoint = hf_hub_download(
                 repo_id="dhkim2810/MobileSAM", filename="mobile_sam.pt"
             )
-            _MOBILE_SAM = SAM(checkpoint)
+            # ComfyUI executes nodes inside torch.inference_mode().  CUDA
+            # BatchNorm rejects model parameters created as inference tensors
+            # (CPU happens to accept them), so construct the cached model with
+            # ordinary tensors.  Ultralytics still applies inference mode while
+            # running predict().
+            with torch.inference_mode(False):
+                _MOBILE_SAM = SAM(checkpoint)
         return _MOBILE_SAM
 
 
