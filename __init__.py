@@ -14,6 +14,14 @@ class Extension(ComfyExtension):
 
 
 async def comfy_entrypoint() -> Extension:
+    from aiohttp import web
+    from server import PromptServer
+    from .py.nodes.yue2 import runtime_status
+
+    if hasattr(PromptServer, 'instance'):
+        async def yue2_status(request):
+            return web.json_response(runtime_status())
+        PromptServer.instance.routes.get('/yue2/status')(yue2_status)
     return Extension()
 
 

@@ -4,6 +4,13 @@ ComfyUI向けのカスタムノード集です。Irodori-TTSの音声生成、�
 
 ## 提供するノード
 
+### YuE2
+
+`YuE2Generate` は ComfyUI のキューから歌詞・Style による音楽生成を実行し、
+`AUDIO`・打切りフラグと元の FLAC を出力します。独立 Python 推論環境を使用し、
+外部の YuE2 HTTP サービスには依存しません。重みは **CC-BY-NC-4.0（非商用限定）**。
+[セットアップ・入力仕様](docs/yue2.md) を参照してください。
+
 ### Irodori-TTS
 
 カテゴリは`ComfyUIExtensions/IrodoriTTS`です。Character Voice Samplerはその下の`Character Voice`にあります。
