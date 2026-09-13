@@ -120,6 +120,25 @@ def video_info(path: Path) -> dict:
     return video
 
 
+def deliver_video(source: Path, output: Path, frame_count: int, directory: Path) -> None:
+    """Resample the entire native clip, retaining both endpoints and audio timing."""
+    if not 96 <= frame_count <= NATIVE_FRAMES:
+        raise ValueError("Sol delivery must contain 96–121 frames")
+    if frame_count == NATIVE_FRAMES:
+        shutil.copyfile(source, output)
+    else:
+        indices = [round(i * (NATIVE_FRAMES - 1) / (frame_count - 1)) for i in range(frame_count)]
+        select = "+".join(f"eq(n\\,{index})" for index in indices)
+        run_owned(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(source),
+                   "-vf", f"select={select},setpts=N/({FPS}*TB)",
+                   "-af", f"atempo={NATIVE_FRAMES / frame_count},apad,atrim=end={frame_count / FPS},asetpts=PTS-STARTPTS",
+                   "-r", str(FPS), "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+                   "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(output)],
+                  directory=directory)
+    if int(video_info(output)["nb_read_frames"]) != frame_count:
+        raise ValueError("Sol delivery frame count differs from the requested duration")
+
+
 class ForgeSolH3(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -220,19 +239,7 @@ class ForgeSolH3(io.ComfyNode):
         directory.mkdir(parents=True)
         output = directory / "video.mp4"
         frame_count = min(NATIVE_FRAMES, math.ceil(duration * FPS))
-        if frame_count == NATIVE_FRAMES:
-            shutil.copyfile(source, output)
-        else:
-            indices = [round(i * (NATIVE_FRAMES - 1) / (frame_count - 1)) for i in range(frame_count)]
-            select = "+".join(f"eq(n\\,{index})" for index in indices)
-            run_owned(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(source),
-                       "-vf", f"select={select},setpts=N/({FPS}*TB)",
-                       "-af", f"atempo={NATIVE_FRAMES / frame_count},apad,atrim=end={frame_count / FPS},asetpts=PTS-STARTPTS",
-                       "-r", str(FPS), "-c:v", "libx264", "-preset", "fast", "-crf", "18",
-                       "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(output)],
-                      directory=job)
-        if int(video_info(output)["nb_read_frames"]) != frame_count:
-            raise ValueError("Sol delivery frame count differs from the requested duration")
+        deliver_video(source, output, frame_count, job)
         report.update(upstream_revision=SANA_REVISION, total_node_seconds=time.monotonic() - started,
                       delivered_frames=frame_count, delivered_duration=frame_count / FPS,
                       native_frames=NATIVE_FRAMES, worker_lifetime="one node invocation; full warmup included in node time")
