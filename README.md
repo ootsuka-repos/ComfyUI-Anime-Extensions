@@ -61,7 +61,7 @@ AI・専用 Python 処理と依存関係はこの拡張が管理します。
 
 ## 必要環境
 
-- `comfy_api.latest` Extension APIに対応したComfyUI
+- `comfy_api.latest` Extension APIとcache providerのprompt lifecycleに対応したComfyUI
 - ComfyUIと[requirements.txt](requirements.txt)の依存パッケージに対応したPython環境
 - Irodori-TTS v4.1-Smallを使う場合はPyTorch 2.10以降（`requirements.txt`に記載の要件）
 - 依存パッケージとモデルの取得にGitとインターネット接続
