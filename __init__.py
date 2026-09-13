@@ -26,6 +26,8 @@ async def comfy_entrypoint() -> Extension:
         async def yue2_status(request):
             return web.json_response(runtime_status())
         PromptServer.instance.routes.get('/yue2/status')(yue2_status)
+        from .py.model_identity import model_identity_route
+        PromptServer.instance.routes.post("/ComfyUIExtensions/Forge/model-identity")(model_identity_route)
     return Extension()
 
 

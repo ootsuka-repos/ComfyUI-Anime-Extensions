@@ -9,7 +9,7 @@ import threading
 import time
 from collections.abc import Callable
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -196,6 +196,7 @@ class RuntimeKey:
     enable_watermark: bool = False
     compile_model: bool = False
     compile_dynamic: bool = False
+    content_identity: tuple[str, str | None] = ("", None)
 
 
 @dataclass
@@ -1489,13 +1490,26 @@ _RUNTIME_CACHE_VALUE: InferenceRuntime | None = None
 
 
 def get_cached_runtime(key: RuntimeKey) -> tuple[InferenceRuntime, bool]:
+    from ...model_identity import irodori_runtime_identity
+
     global _RUNTIME_CACHE_KEY, _RUNTIME_CACHE_VALUE
     with _RUNTIME_CACHE_LOCK:
+        content = irodori_runtime_identity(key.checkpoint, key.codec_repo, allow_missing_codec=True)
+        key = replace(key, content_identity=content)
         if _RUNTIME_CACHE_VALUE is not None and _RUNTIME_CACHE_KEY == key:
             return _RUNTIME_CACHE_VALUE, False
 
         old_runtime = _RUNTIME_CACHE_VALUE
         runtime = InferenceRuntime.from_key(key)
+        try:
+            loaded_content = irodori_runtime_identity(key.checkpoint, key.codec_repo)
+            if loaded_content[0] != content[0] or (content[1] is not None and loaded_content[1] != content[1]):
+                raise RuntimeError("Irodori model or codec changed during loading; retry")
+            key = replace(key, content_identity=loaded_content)
+            runtime.key = key
+        except BaseException:
+            runtime.unload()
+            raise
         _RUNTIME_CACHE_KEY = key
         _RUNTIME_CACHE_VALUE = runtime
 

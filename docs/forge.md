@@ -39,3 +39,18 @@ ComfyUIプロセスの環境変数で `DOUJIN_FORGE_OPENAI_BASE_URL`、
 既定の接続先は旧実装と同じ `http://127.0.0.1:8888/v1` です。
 接続先・認証情報はワークフローの入力に含めません。任意のプロバイダが自動で起動するわけではなく、
 指定したテキスト/VLMプロバイダが起動している必要があります。
+
+## 同名モデルの差し替え検知
+
+`ComfyUIExtensions_Forge_CheckpointLoaderSimple`、`ComfyUIExtensions_Forge_UNETLoader`、
+`ComfyUIExtensions_Forge_CLIPLoader`、`ComfyUIExtensions_Forge_VAELoader` は標準ローダーの
+入出力と読込み処理を使い、ファイル内容のSHA-256をComfyUIのキャッシュ判定に追加します。
+同名・同容量の重みを交換した場合も再読込みし、内容が同じ更新日時だけの変更では再読込みしません。
+Irodori ModelLoaderと通常TTSの常駐ランタイムも、チェックポイントとcodecの内容を確認します。
+
+プラグイン向けの `POST /ComfyUIExtensions/Forge/model-identity` は
+`{"models":[{"category":"checkpoints","name":"model.safetensors"}]}` を受け取り、
+登録済みモデルのサイズ・SHA-256を返します。`include_irodori_codec: true` で、
+指定したIrodoriチェックポイントに対応する取得済みcodecも含めます。モデルのロードや取得は行いません。
+ハッシュ計算は実行ループ外で行い、ファイル情報が変わるまで結果を再利用します。
+検査中の変更や未取得ファイルはエラーとなり、ファイル名だけの識別には戻しません。
