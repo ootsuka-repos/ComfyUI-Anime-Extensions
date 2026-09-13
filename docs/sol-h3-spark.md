@@ -1,4 +1,4 @@
-# Sol-H3-Spark for ComfyUI-Extensions
+# Sol-H3-Spark for ComfyUI-Anime-Extensions
 
 `ComfyUIExtensions.SolH3` runs the official Sol-H3-Spark pipeline as owned
 child processes. Model execution belongs here; the Codex/Claude plugin contains

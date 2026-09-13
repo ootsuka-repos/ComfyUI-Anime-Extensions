@@ -1,4 +1,4 @@
-# ComfyUI-Extensions
+# ComfyUI-Anime-Extensions
 
 Custom nodes for ComfyUI: Irodori-TTS speech synthesis, image-conditioned Character Voice, image analysis and segmentation, YuE2 music generation, text and video generation, comic page layout, and VRM processing.
 
@@ -81,8 +81,8 @@ Activate the Python environment used by ComfyUI, then run the following commands
 
 ```bash
 cd /path/to/ComfyUI
-git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git custom_nodes/ComfyUI-Extensions
-python -m pip install -r custom_nodes/ComfyUI-Extensions/requirements.txt
+git clone https://github.com/ootsuka-repos/ComfyUI-Anime-Extensions.git custom_nodes/ComfyUI-Anime-Extensions
+python -m pip install -r custom_nodes/ComfyUI-Anime-Extensions/requirements.txt
 ```
 
 ### Windows portable (PowerShell)
@@ -91,8 +91,8 @@ Run from the portable installation root containing both `ComfyUI` and `python_em
 
 ```powershell
 Set-Location -LiteralPath "C:\path\to\ComfyUI_windows_portable"
-git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git .\ComfyUI\custom_nodes\ComfyUI-Extensions
-.\python_embeded\python.exe -m pip install -r .\ComfyUI\custom_nodes\ComfyUI-Extensions\requirements.txt
+git clone https://github.com/ootsuka-repos/ComfyUI-Anime-Extensions.git .\ComfyUI\custom_nodes\ComfyUI-Anime-Extensions
+.\python_embeded\python.exe -m pip install -r .\ComfyUI\custom_nodes\ComfyUI-Anime-Extensions\requirements.txt
 ```
 
 Restart ComfyUI after installation. To update, run `git pull` in this repository, reinstall dependencies in the same Python environment, and restart ComfyUI.

@@ -65,7 +65,7 @@ class YuE2Generate(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id='YuE2Generate', display_name='YuE2 Generate Song (noncommercial)',
-            category='ComfyUI-Extensions/YuE2', is_output_node=True,
+            category='ComfyUI-Anime-Extensions/YuE2', is_output_node=True,
             inputs=[
                 io.String.Input('style', default='', multiline=True),
                 io.String.Input('lyrics', default='', multiline=True),

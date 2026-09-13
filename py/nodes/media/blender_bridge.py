@@ -147,7 +147,7 @@ def _set_metadata(armature: bpy.types.Object, name: str) -> None:
     meta = armature.data.vrm_addon_extension.vrm1.meta
     meta.vrm_name = name
     meta.version = "1.0.0"
-    meta.authors.add().value = "ComfyUI-Extensions"
+    meta.authors.add().value = "ComfyUI-Anime-Extensions"
     meta.avatar_permission = "onlyAuthor"
     meta.allow_excessively_violent_usage = False
     meta.allow_excessively_sexual_usage = False
