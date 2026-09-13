@@ -1,4 +1,6 @@
 """Native ComfyUI loaders whose execution fingerprints follow local weights."""
+
+import asyncio
 from pathlib import Path
 
 import folder_paths
@@ -30,8 +32,11 @@ class ForgeCheckpointLoaderSimple(io.ComfyNode):
                        [io.Model.Output(), io.Clip.Output(), io.Vae.Output()])
 
     @classmethod
-    def fingerprint_inputs(cls, ckpt_name):
-        return _digest("checkpoints", ckpt_name)
+    async def fingerprint_inputs(cls, ckpt_name):
+        def calculate():
+            return _digest("checkpoints", ckpt_name)
+
+        return await asyncio.to_thread(calculate)
 
     @classmethod
     def execute(cls, ckpt_name):
@@ -44,8 +49,11 @@ class ForgeUNETLoader(io.ComfyNode):
         return _schema("UNETLoader", native.UNETLoader, [io.Model.Output()])
 
     @classmethod
-    def fingerprint_inputs(cls, unet_name, weight_dtype):
-        return _digest("diffusion_models", unet_name)
+    async def fingerprint_inputs(cls, unet_name, weight_dtype):
+        def calculate():
+            return _digest("diffusion_models", unet_name)
+
+        return await asyncio.to_thread(calculate)
 
     @classmethod
     def execute(cls, unet_name, weight_dtype):
@@ -58,8 +66,11 @@ class ForgeCLIPLoader(io.ComfyNode):
         return _schema("CLIPLoader", native.CLIPLoader, [io.Clip.Output()])
 
     @classmethod
-    def fingerprint_inputs(cls, clip_name, type="stable_diffusion", device="default"):
-        return _digest("text_encoders", clip_name)
+    async def fingerprint_inputs(cls, clip_name, type="stable_diffusion", device="default"):
+        def calculate():
+            return _digest("text_encoders", clip_name)
+
+        return await asyncio.to_thread(calculate)
 
     @classmethod
     def execute(cls, clip_name, type="stable_diffusion", device="default"):
@@ -72,15 +83,18 @@ class ForgeVAELoader(io.ComfyNode):
         return _schema("VAELoader", native.VAELoader, [io.Vae.Output()])
 
     @classmethod
-    def fingerprint_inputs(cls, vae_name):
-        if vae_name == "pixel_space":
-            return "pixel_space"
-        if vae_name in native.VAELoader.image_taes:
-            files = folder_paths.get_filename_list("vae_approx")
-            return tuple(_digest("vae_approx", next(name for name in files if name.startswith(f"{vae_name}_{part}.")))
-                         for part in ("encoder", "decoder"))
-        category = "vae_approx" if Path(vae_name).stem in native.VAELoader.video_taes else "vae"
-        return _digest(category, vae_name)
+    async def fingerprint_inputs(cls, vae_name):
+        def calculate():
+            if vae_name == "pixel_space":
+                return "pixel_space"
+            if vae_name in native.VAELoader.image_taes:
+                files = folder_paths.get_filename_list("vae_approx")
+                return tuple(_digest("vae_approx", next(name for name in files if name.startswith(f"{vae_name}_{part}.")))
+                             for part in ("encoder", "decoder"))
+            category = "vae_approx" if Path(vae_name).stem in native.VAELoader.video_taes else "vae"
+            return _digest(category, vae_name)
+
+        return await asyncio.to_thread(calculate)
 
     @classmethod
     def execute(cls, vae_name):

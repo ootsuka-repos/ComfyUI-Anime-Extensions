@@ -1,3 +1,5 @@
+
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -12,6 +14,11 @@ import torch
 from comfy_api.latest import io, ui
 
 from .worker import native_request
+
+
+def runtime_config():
+    config_path = Path(os.environ.get('COMFYUI_YUE2_CONFIG', str(Path(folder_paths.base_path) / 'runtimes/YuE2/comfyui.json')))
+    return json.loads(config_path.read_text())
 
 
 def runtime_status():
@@ -29,11 +36,10 @@ def runtime_status():
 
 
 def run_worker(fields, directory):
-    config_path = Path(os.environ.get('COMFYUI_YUE2_CONFIG', str(Path(folder_paths.base_path) / 'runtimes/YuE2/comfyui.json')))
-    config = json.loads(config_path.read_text())
+    config = runtime_config()
     (directory / 'intent.json').write_text(json.dumps(fields, ensure_ascii=False))
-    environment = {**os.environ, 'HF_HUB_OFFLINE': '1', 'TRANSFORMERS_OFFLINE': '1', 'HF_HUB_DISABLE_TELEMETRY': '1', 'OMP_NUM_THREADS': '4'}
-    command = [config['python'], str(Path(__file__).with_name('worker.py')), str(directory), config['model'], config['vae']]
+    environment = {**os.environ, 'HF_HUB_OFFLINE': '1', 'TRANSFORMERS_OFFLINE': '1', 'HF_HUB_DISABLE_TELEMETRY': '1', 'OMP_NUM_THREADS': '4', 'PYTHONDONTWRITEBYTECODE': '1'}
+    command = [config['python'], '-B', str(Path(__file__).with_name('worker.py')), str(directory), config['model'], config['vae']]
     model_management.unload_all_models()
     with (directory / 'worker.log').open('w') as log:
         process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, env=environment)
@@ -72,6 +78,16 @@ class YuE2Generate(io.ComfyNode):
             outputs=[io.Audio.Output(), io.Boolean.Output('truncated')],
         )
 
+
+    @classmethod
+    async def fingerprint_inputs(cls, **kwargs):
+        def calculate():
+            from ...model_identity import model_path_identity
+
+            config = runtime_config()
+            return (model_path_identity(config['model']), model_path_identity(config['vae']))
+
+        return await asyncio.to_thread(calculate)
 
     @classmethod
     def execute(cls, style, lyrics, seed, cot, abc, cfg_scale, noncommercial):

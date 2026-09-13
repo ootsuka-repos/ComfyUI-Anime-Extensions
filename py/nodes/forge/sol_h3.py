@@ -1,9 +1,12 @@
 """Sol-H3-Spark execution owned by ComfyUI, using the pinned upstream recipe."""
 from __future__ import annotations
 
+import asyncio
+
 import json
 import importlib.util
 import math
+import re
 import os
 from pathlib import Path
 import shutil
@@ -77,6 +80,33 @@ def task_paths(config: dict, task: str) -> dict:
             if not (directory / shard).is_file():
                 raise FileNotFoundError(f"Missing Sol {task} checkpoint shard: {directory / shard}")
     return paths
+
+
+def model_fingerprint(task: str, *, resolved_paths: dict | None = None) -> str:
+    """Fingerprint only the selected Sol task's local inference assets."""
+    from ...model_identity import model_path_identity, _digest
+
+    paths = resolved_paths if resolved_paths is not None else task_paths(runtime_config(), task)
+    h3 = Path(paths["h3_model"])
+    assets = {
+        "h3_transformer": h3 / ("transformer_ref" if task == "ref2va" else "transformer"),
+        "h3_vae_config": h3 / "vae/config.json",
+    }
+    if task != "t2va":
+        assets["h3_vae"] = h3 / "vae"
+    for key in ("ref2va_lora" if task == "ref2va" else "vsa_lora", "transformer",
+                "refiner_lora", "output_video_vae", "audio_vae", "adapter_dir",
+                "h3_upscaler_checkpoint", "qwen_checkpoint", "prompt_cache"):
+        assets[key] = Path(paths[key])
+    return _digest({key: model_path_identity(path) for key, path in sorted(assets.items())})
+
+
+def require_model_identity(task: str, expected: str, *, resolved_paths: dict | None = None) -> None:
+    """Reject changed weights before admitting a pinned project to a worker."""
+    if not isinstance(expected, str) or (expected and re.fullmatch(r"[0-9a-f]{64}", expected) is None):
+        raise ValueError("expected_model_identity must be empty or a SHA-256 digest")
+    if expected and model_fingerprint(task, resolved_paths=resolved_paths) != expected:
+        raise ValueError("Sol model content changed from this project's pinned identity; restore the original weights or use a new project")
 
 
 def runtime_status() -> dict:
@@ -176,15 +206,32 @@ class ForgeSolH3(io.ComfyNode):
                 io.String.Input("reference_images", default="[]", optional=True),
                 io.String.Input("reference_videos", default="[]", optional=True),
                 io.String.Input("reference_audios", default="[]", optional=True),
+                io.String.Input("expected_model_identity", default="", optional=True),
             ],
             outputs=[io.String.Output("manifest")],
             is_output_node=True,
         )
 
     @classmethod
+    async def fingerprint_inputs(cls, **kwargs):
+        def calculate():
+            from ...model_identity import _file_identity
+
+            references = []
+            for field in ("first_frame", "last_frame"):
+                if kwargs.get(field):
+                    references.append(kwargs[field])
+            for field, limit in (("reference_images", 9), ("reference_videos", 3), ("reference_audios", 3)):
+                references.extend(reference_list(kwargs.get(field, "[]"), limit))
+            return (model_fingerprint(kwargs["task"]),
+                    tuple(_file_identity(uploaded_file(name))["sha256"] for name in references))
+
+        return await asyncio.to_thread(calculate)
+
+    @classmethod
     def execute(cls, task, prompt, seed, duration, output_prefix,
                 first_frame="", last_frame="", reference_images="[]",
-                reference_videos="[]", reference_audios="[]"):
+                reference_videos="[]", reference_audios="[]", expected_model_identity=""):
         if (task not in {"t2va", "fl2va", "ref2va"} or not prompt.strip()
                 or type(seed) is not int or not 0 <= seed < 2**63):
             raise ValueError("Provide a Sol task, nonempty prompt and nonnegative 63-bit seed")
@@ -206,8 +253,7 @@ class ForgeSolH3(io.ComfyNode):
         if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
             raise RuntimeError("Install ffmpeg and ffprobe on the ComfyUI host")
         config = runtime_config()
-        task_paths(config, task)
-        paths = Path(config["paths"][task]).expanduser()
+        resolved_paths = task_paths(config, task)
         output_root = Path(folder_paths.get_output_directory()).resolve()
         prefix = (output_root / output_prefix).resolve()
         if prefix == output_root or output_root not in prefix.parents:
@@ -215,6 +261,9 @@ class ForgeSolH3(io.ComfyNode):
         job_id = uuid.uuid4().hex
         job = Path(config["runtime_root"]) / "jobs" / job_id
         job.mkdir(parents=True)
+        # Launch from the same immutable path selection that admission verifies.
+        paths = job / "runtime-paths.json"
+        paths.write_text(json.dumps(resolved_paths, ensure_ascii=False) + "\n")
         inputs = job / "inputs"
         inputs.mkdir()
         case = {"case_id": "generation", "task": task, "prompt": prompt, "seed": seed}
@@ -245,6 +294,7 @@ class ForgeSolH3(io.ComfyNode):
         package = Path(config["package"])
         # Sol owns isolated CUDA workers; release Comfy's resident model weights
         # before starting them. No shared LLM service is stopped by this node.
+        require_model_identity(task, expected_model_identity, resolved_paths=resolved_paths)
         model_management.unload_all_models()
         model_management.soft_empty_cache()
         started = time.monotonic()

@@ -25,10 +25,10 @@ def _stamp(info):
     return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
-def _file_identity(path: Path) -> dict:
+def _file_identity(path: Path, *, allow_empty: bool = False) -> dict:
     resolved = path.resolve(strict=True)
     before = resolved.stat()
-    if not stat.S_ISREG(before.st_mode) or before.st_size <= 0:
+    if not stat.S_ISREG(before.st_mode) or (before.st_size <= 0 and not allow_empty):
         raise ValueError("Model must be a non-empty regular file")
     key = (str(resolved), *_stamp(before))
     with _LOCK:
@@ -51,6 +51,33 @@ def _file_identity(path: Path) -> dict:
             _CACHE.pop(key, None)
             raise ModelChangedError("Model changed during fingerprinting; retry")
         return dict(result)
+
+
+def model_path_identity(path: str | Path) -> str:
+    """Fingerprint a worker-selected weight file or model directory."""
+    root = Path(path)
+    if root.is_file():
+        return _file_identity(root)["sha256"]
+    if not root.is_dir():
+        raise FileNotFoundError(f"Worker model is unavailable: {root}")
+    suffixes = {".safetensors", ".bin", ".pt", ".pth", ".json", ".model", ".txt", ".tiktoken"}
+
+    def snapshot():
+        files = sorted(file for file in root.rglob("*")
+                       if file.is_file() and file.suffix.lower() in suffixes
+                       and not any(part.startswith(".") for part in file.relative_to(root).parts))
+        records = tuple((file.relative_to(root).as_posix(), str(file.resolve(strict=True)), *_stamp(file.stat()))
+                        for file in files)
+        return files, records
+
+    files, before = snapshot()
+    if not files:
+        raise FileNotFoundError(f"Worker model directory has no weights/configuration: {root}")
+    records = [{"name": file.relative_to(root).as_posix(),
+                **_file_identity(file, allow_empty=file.suffix.lower() == ".txt")} for file in files]
+    if snapshot()[1] != before:
+        raise ModelChangedError("Worker model directory changed during fingerprinting; retry")
+    return _digest(records)
 
 
 def _resolve_model(category: str, name: str) -> Path:

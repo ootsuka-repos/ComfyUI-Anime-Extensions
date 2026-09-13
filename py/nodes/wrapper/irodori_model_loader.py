@@ -1,3 +1,4 @@
+import asyncio
 import folder_paths
 from comfy_api.latest import io
 
@@ -91,12 +92,15 @@ class IrodoriModelLoader(io.ComfyNode):
         )
 
     @classmethod
-    def fingerprint_inputs(cls, **kwargs):
-        from ...model_identity import irodori_runtime_identity
+    async def fingerprint_inputs(cls, **kwargs):
+        def calculate():
+            from ...model_identity import irodori_runtime_identity
 
-        checkpoint = resolve_checkpoint_path(kwargs["model"])
-        repo = codec_repo_for_latent_dim(peek_latent_dim_from_checkpoint(checkpoint))
-        return irodori_runtime_identity(checkpoint, repo, allow_missing_codec=True)
+            checkpoint = resolve_checkpoint_path(kwargs["model"])
+            repo = codec_repo_for_latent_dim(peek_latent_dim_from_checkpoint(checkpoint))
+            return irodori_runtime_identity(checkpoint, repo, allow_missing_codec=True)
+
+        return await asyncio.to_thread(calculate)
 
     @classmethod
     def execute(
