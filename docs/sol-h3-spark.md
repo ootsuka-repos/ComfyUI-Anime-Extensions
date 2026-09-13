@@ -10,6 +10,13 @@ Sana `sol-engine` revision `8e0db4fa562d727ea28b8d63015c196db7d97cae`.
 Use the whole Sana checkout: the package imports shared Sol attention code.
 The official recipe targets Linux aarch64 and one NVIDIA GB10 / DGX Spark.
 
+Sol's Qwen3-VL-32B NVFP4 AWQ model encodes prompts and reference media into
+H3-specific token features (`[1, tokens, 5120]`) and MiniMax modality tags. It is
+separate from the external LLM used for writing scenarios and prompts. The existing
+`qwen38-flashnext-serving` Qwen3.8 chat/vision API remains that writing service;
+its generated text or general embeddings cannot replace the native H3 features.
+The Sol container exposes no additional chat API and exits with its owning job.
+
 ## Prepare the ComfyUI host
 
 Keep generated dependencies outside this extension checkout and the plugin.
@@ -41,6 +48,11 @@ ComfyUI/runtimes/
    the entire unfiltered MiniMax-H3 repository. The three-task native H3 subset is
    about 134 GiB, excluding the other models. Existing HF cache paths can instead be
    supplied through the flat `--paths` overrides accepted by `prepare.py`.
+   Preserve the official Gemma and connector filenames: the offline cache builder
+   checks their names after resolving symlinks. HF snapshot symlinks resolve to
+   hash-named blobs; use the upstream local download layout, or hard-link verified
+   blobs to their official filenames under the runtime's checkpoint directory.
+   Set `gemma_tokenizer` to the same named file as `offline_gemma`.
 3. LTX-2.5 requires approved [Hugging Face access](https://huggingface.co/Lightricks/LTX-2.5)
    and local `hf auth login`. Credentials belong to the host; never put them in
    workflow JSON or send them in chat. A 403 means setup cannot proceed to inference.
@@ -77,6 +89,21 @@ ComfyUI/runtimes/
 Upstream `*-observed.txt` files are version inventories, not resolved install locks.
 Do not install these conflicting stacks into live ComfyUI's Python or the plugin.
 Model files and the generic cache are never downloaded during a node invocation.
+
+On this GB10 host, the fresh build needed two dependency adjustments. The recorded
+FA4 `apache-tvm-ffi==0.1.13rc1` is absent from PyPI and upstream tags; the published
+`0.1.13.post3` satisfies Quack 0.5.3's supported range and passed real FA4 GPU
+attention comparisons against FP32 reference math, with and without a causal mask.
+Keep the FA4 CuTe version at `4.6.0.dev0` in its separate target.
+
+Stage2's Torch CUDA 13.2 headers require a matching compiler. System CUDA 13.0
+caused an incompatible-header build failure. The working build installed
+`nvidia-cuda-nvcc==13.2.78`, `nvidia-nvvm==13.2.78`,
+`nvidia-cuda-crt==13.2.78` and `nvidia-cuda-cccl==13.2.75` into Stage2 only,
+then set `CUDA_HOME` to that environment's `site-packages/nvidia/cu13` directory
+and used its `bin/nvcc`. The live ComfyUI environment and system CUDA remain
+independent. Both environment import/GPU checks passed; these are preparation
+checks, not a claim of completed Sol model inference.
 
 ## Workflow inputs and outputs
 
