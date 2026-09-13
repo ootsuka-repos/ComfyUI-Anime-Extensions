@@ -45,6 +45,13 @@ ComfyUI向けのカスタムノード集です。Irodori-TTSの音声生成、�
 
 解析・WD14スコア・ヒートマップ・MobileSAMの入力は1枚のRGB画像です。Character SegmentとSave RGBAは画像バッチに対応します。
 
+### Doujin Forge
+
+漫画ページの組み立て、VRM の技術確認用モデル作成、動画からの VRM アニメーションを
+ComfyUI のキューで実行します。プラグインはワークフロー JSON を持ち、
+AI・専用 Python 処理と依存関係はこの拡張が管理します。
+[ノード・実行環境・出力仕様](docs/forge.md) を参照してください。
+
 ## 必要環境
 
 - `comfy_api.latest` Extension APIに対応したComfyUI

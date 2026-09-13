@@ -21,3 +21,7 @@ shapely>=2.0.0,!=2.0.7
 ultralytics>=8.4.114,<9
 silentcipher @ git+https://github.com/SesameAILabs/silentcipher.git@d46d7d0893a583d8968ab3a6626e2289faec9152
 
+
+# Forge VRM pose extraction uses the existing ComfyUI runtime.
+rtmlib>=0.0.14
+onnxruntime>=1.20
