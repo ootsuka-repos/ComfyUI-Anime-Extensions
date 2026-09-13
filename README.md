@@ -1,13 +1,13 @@
 # ComfyUI-Extensions
 
-ComfyUI向けのカスタムノード集です。Irodori-TTSの音声生成、画像を条件にしたCharacter Voice音声生成、Kanomemoの画像解析・切り抜き・ぼかし処理を提供します。
+ComfyUI向けのカスタムノード集です。Irodori-TTSの音声生成、画像を条件にしたCharacter Voice音声生成、Kanomemoの画像解析・切り抜き・ぼかし処理、YuE2の音楽生成、Doujin Forgeのテキスト・動画生成・漫画ページ配置・VRM処理を提供します。
 
 ワークフロー終了時は、成功・失敗ともにモデルと推論キャッシュを自動解放します。
-ComfyUI管理モデルに加え、Irodori・Kanomemo・imgutilsの独自キャッシュも対象です。
+ComfyUI管理モデルとノード出力キャッシュに加え、Irodori・Kanomemo・imgutilsの独自キャッシュも対象です。
 履歴と保存ファイルは保持し、次のワークフローでは必要なモデルを再ロードします。
 `COMFYUI_FORGE_AUTO_UNLOAD=0` をComfyUIの環境変数に設定すると、この動作を無効にできます。
-外部のQwenサービスはこの処理の対象外です。生成前のLLM解放も無効にして常駐させる場合は
-`DOUJIN_FORGE_OPENAI_RELEASE_BEFORE_COMFY=0` を併せて設定します。
+外部テキストサービスはこの終了時処理の対象外です。`Forge Release Local Text Model`は対応するローカルサービスのモデル解放を別途要求します。この要求を無効にする場合は`DOUJIN_FORGE_OPENAI_RELEASE_BEFORE_COMFY=0`を設定します。
+`keep_gpu`を指定しても、終了時の自動解放が有効ならワークフローをまたいでモデルは保持されません。
 
 ## 提供するノード
 
@@ -54,10 +54,21 @@ ComfyUI管理モデルに加え、Irodori・Kanomemo・imgutilsの独自キャ�
 
 ### Doujin Forge
 
-漫画ページの組み立て、VRM の技術確認用モデル作成、動画からの VRM アニメーションを
-ComfyUI のキューで実行します。プラグインはワークフロー JSON を持ち、
-AI・専用 Python 処理と依存関係はこの拡張が管理します。
-[ノード・実行環境・出力仕様](docs/forge.md) を参照してください。
+カテゴリは`Doujin Forge/Text`・`Video`・`Comic`・`Avatar`・`model loaders`です。
+
+| ノード名 | 機能・出力 |
+| --- | --- |
+| Forge Text Completion | JSONリクエストからOpenAI互換サービスへテキスト・画像条件の生成を要求し、文字列を出力 |
+| Forge Release Local Text Model | 対応するローカルテキストサービスのモデル解放を要求し、解放したかを真偽値で出力 |
+| Forge Sol-H3-Spark | テキスト、先頭・末尾フレーム、参照メディアを条件に動画を生成し、成果物のmanifestを出力 |
+| Forge Comic Page | IMAGEバッチを列数・余白・右読み順に従って1ページへ配置 |
+| Forge VRM Starter | 技術確認用のVRM・ポスター・Blenderシーンを作成 |
+| Forge VRM Dance | input内のVRMと動画から2D姿勢を抽出し、アニメーション動画・編集用Blenderシーンなどを出力 |
+| Forge CheckpointLoaderSimple / UNETLoader / CLIPLoader / VAELoader | 標準ローダーの読み込み処理に、モデル内容のSHA-256によるキャッシュ判定を追加 |
+
+モデルローダーは同名・同容量の重みの差し替えも検知します。Irodori、YuE2、Sol-H3-Sparkにもモデル内容を使うキャッシュ判定があります。大きな重みの初回ハッシュ計算には時間がかかる場合があります。
+
+[Forgeのノード・設定・モデル識別API](docs/forge.md)、[Sol-H3-Sparkのセットアップ](docs/sol-h3-spark.md)を参照してください。
 
 ## 必要環境
 
@@ -91,6 +102,19 @@ git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git .\ComfyUI\cust
 ```
 
 インストール後はComfyUIを再起動します。更新時はこのリポジトリで`git pull`を実行し、同じPython環境で依存関係を再インストールして再起動してください。
+
+## 機能別の追加セットアップ
+
+モデル本体と専用ランタイムは同梱していません。`requirements.txt`のインストールに加え、使う機能に応じて準備してください。
+
+| 機能 | 追加で準備するもの |
+| --- | --- |
+| Forge Text Completion | 起動済みのOpenAI互換テキスト・VLMサービス。ComfyUIの環境変数`DOUJIN_FORGE_OPENAI_BASE_URL`（既定`http://127.0.0.1:8888/v1`）、`DOUJIN_FORGE_OPENAI_MODEL`、必要に応じて`DOUJIN_FORGE_OPENAI_API_KEY`を設定 |
+| YuE2 | 独立Python環境と取得済みモデル・VAE、`ComfyUI/runtimes/YuE2/comfyui.json`。別パスは`COMFYUI_YUE2_CONFIG`で指定。[詳細](docs/yue2.md) |
+| Sol-H3-Spark | 専用ランタイム・モデル・コンテナ、ffmpeg / ffprobe。設定の既定位置は`ComfyUI/runtimes/sol-h3-spark/config.json`、変更は`COMFYUI_FORGE_SOL_CONFIG`で指定。[詳細](docs/sol-h3-spark.md) |
+| VRM | Blenderとその環境へのVRM Add-on導入。動画処理にはffmpegも必要。Blenderは`COMFYUI_FORGE_BLENDER`またはPATHで指定 |
+
+接続先・認証情報と専用ランタイムのパスはComfyUIホスト側で設定します。
 
 ## モデル配置・自動取得
 
@@ -143,7 +167,18 @@ Reference AudioはComfyUIの`input`内の音声・動画を選択でき、音声
 
 MobileSAMで対象を選ぶ場合は、元画像上のピクセル座標で矩形を指定します。無効な矩形やマスクが得られない場合は、全て0のマスクを返します。
 
+### Forgeの基本操作
+
+- テキスト生成: `Forge Text Completion`の`request_json`に`{"user_prompt":"短い台詞を書いてください","system_prompt":"日本語で回答してください","log_tag":"example"}`を入力します。画像条件は`image_data_urls`、構造化出力は`response_format`で指定できます。ノードからのツール実行は無効です。
+- 漫画ページ: 同じサイズのコマ画像をIMAGEバッチにして`Forge Comic Page`へ接続し、出力`page`を画像保存ノードへ接続します。作画・吹き出し・文字入れはこのノードの処理に含まれません。
+- 動画: `Forge Sol-H3-Spark`で`task`を選択します。`t2va`はテキストのみ、`fl2va`は先頭または末尾フレーム、`ref2va`は画像または動画を含む参照入力を使います。ファイルはComfyUIの`input`内に配置します。
+- VRM: `Forge VRM Starter`は技術確認用モデルを作成します。`Forge VRM Dance`には`input`内の`avatar_file`と`source_video`を指定します。結果は`output/doujin-forge/avatar/<id>/`へ保存され、元動画に音声があれば動画へ合成します。
+
 ## 現在の制約
+
+- YuE2はモデルの自動取得を行いません。利用時は`noncommercial=true`による非商用利用への明示的な同意が必要です。出力の`truncated=true`は生成が打ち切られたことを示します。
+- Sol-H3-Sparkの1回の生成は121フレーム・24fpsで、指定できる長さは4〜約5.04秒です。長尺の作品は呼び出し側で分割・連結します。
+- VRM Danceは2D姿勢に基づくアニメーションです。VRMAは出力せず、編集用シーンと動画を保存します。
 
 - **LoRAのUIと通常TTSランタイムの形式が一致していません。** LoRA Stackは`models/loras`のファイル一覧からパスを渡しますが、ランタイムは`adapter_config.json`と重みを含むアダプタディレクトリを要求します。このため、LoRAファイルを配置してノードで選択するだけでは利用できません。
 - 通常TTS Samplerが受け付けるLoRAは1個までです。LoRA Stackの`strength`は推論リクエストに渡されておらず、強度変更は反映されません。ランタイムでの動的LoRA読み込みは`compile_model=True`と併用できません。
