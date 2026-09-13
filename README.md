@@ -1,89 +1,83 @@
 # ComfyUI-Extensions
 
-ComfyUI向けのカスタムノード集です。Irodori-TTSの音声生成、画像を条件にしたCharacter Voice音声生成、Image Toolsの画像解析・切り抜き・ぼかし処理、YuE2の音楽生成、テキスト・動画生成・漫画ページ配置・VRM処理を提供します。
+Custom nodes for ComfyUI: Irodori-TTS speech synthesis, image-conditioned Character Voice, image analysis and segmentation, YuE2 music generation, text and video generation, comic page layout, and VRM processing.
 
-ワークフロー終了時は、成功・失敗ともにモデルと推論キャッシュを自動解放します。
-ComfyUI管理モデルとノード出力キャッシュに加え、Irodori・Image Tools・imgutilsの独自キャッシュも対象です。
-履歴と保存ファイルは保持し、次のワークフローでは必要なモデルを再ロードします。
-`COMFYUI_EXTENSIONS_AUTO_UNLOAD=0` をComfyUIの環境変数に設定すると、この動作を無効にできます。
-外部テキストサービスはこの終了時処理の対象外です。`Release Local Text Model`は対応するローカルサービスのモデル解放を別途要求します。この要求を無効にする場合は`COMFYUI_EXTENSIONS_OPENAI_RELEASE_BEFORE_COMFY=0`を設定します。
-`keep_gpu`を指定しても、終了時の自動解放が有効ならワークフローをまたいでモデルは保持されません。
+Models and inference caches are automatically released when a workflow finishes, whether it succeeds or fails. Cleanup covers ComfyUI-managed models and node output caches, plus the extension's Irodori, image processing, and imgutils caches. History and saved files are retained; subsequent workflows reload models as needed.
 
-## 提供するノード
+Set `COMFYUI_EXTENSIONS_AUTO_UNLOAD=0` in the ComfyUI environment to disable automatic cleanup. External text services are outside this cleanup process. `Release Local Text Model` separately requests model unloading from a supported local service; set `COMFYUI_EXTENSIONS_OPENAI_RELEASE_BEFORE_COMFY=0` to disable that request. With automatic cleanup enabled, `keep_gpu` does not keep models resident across workflows.
+
+## Nodes
 
 ### YuE2
 
-`YuE2Generate` は ComfyUI のキューから歌詞・Style による音楽生成を実行し、
-`AUDIO`・打切りフラグと元の FLAC を出力します。独立 Python 推論環境を使用し、
-外部の YuE2 HTTP サービスには依存しません。重みは **CC-BY-NC-4.0（非商用限定）**。
-[セットアップ・入力仕様](docs/yue2.md) を参照してください。
+`YuE2Generate` runs music generation from lyrics and style through the ComfyUI queue. It returns `AUDIO`, a truncation flag, and the original FLAC. Inference runs in a separate Python environment without an external YuE2 HTTP service. Model weights are **CC-BY-NC-4.0 (noncommercial use only)**. See [setup and inputs](docs/yue2.md).
 
 ### Irodori-TTS
 
-カテゴリは`ComfyUIExtensions/IrodoriTTS`です。Character Voice Samplerはその下の`Character Voice`にあります。
+Category: `ComfyUIExtensions/IrodoriTTS`. Character Voice Sampler is in its `Character Voice` subcategory.
 
-| ノード名 | 機能 |
+| Node | Function |
 | --- | --- |
-| IrodoriTTS Model Loader | チェックポイントを選び、モデル・codecのデバイス、精度、キャッシュ方針を設定 |
-| IrodoriTTS Sampler | テキストから音声生成。参照音声・VoiceDesign・各種設定を任意で接続 |
-| Irodori Character Voice Sampler | Character Voice対応チェックポイントで音声生成。キャラクター画像を任意で接続 |
-| IrodoriTTS Reference Audio | 音声・動画ファイルを話者参照に指定。音量正規化と参照時間の上限を設定 |
-| IrodoriTTS VoiceDesign Config | VoiceDesign対応モデル向けの声の説明文（`caption`）を設定 |
-| IrodoriTTS CFG Config | テキスト・話者・caption・キャラクター条件のガイダンスを設定 |
-| IrodoriTTS Rescale Config | rescale、truncation、speaker K/V補正を設定 |
-| IrodoriTTS Schedule Config | 通常TTSのサンプリングスケジュール（`linear` / `sway`）を設定 |
-| IrodoriTTS Trim Tail Config | 末尾の無音・平坦部分を切り詰める判定を設定 |
-| IrodoriTTS LoRA Stack | LoRA設定を作成。現在の接続上の制約は後述 |
-| IrodoriTTS Save Audio | `AUDIO`をWAV・MP3・FLACで保存 |
-| IrodoriTTS Emoji Picker | 演技指定用の絵文字をクリップボードへコピーする補助UI。入出力端子なし |
+| IrodoriTTS Model Loader | Select a checkpoint and configure model/codec devices, precision, and caching |
+| IrodoriTTS Sampler | Generate speech from text, with optional reference audio, VoiceDesign, and sampling settings |
+| Irodori Character Voice Sampler | Generate speech with a Character Voice checkpoint and an optional character image |
+| IrodoriTTS Reference Audio | Use an audio or video file as a speaker reference; configure normalization and maximum reference duration |
+| IrodoriTTS VoiceDesign Config | Set a voice description (`caption`) for compatible models |
+| IrodoriTTS CFG Config | Configure guidance for text, speaker, caption, and character conditioning |
+| IrodoriTTS Rescale Config | Configure rescaling, truncation, and speaker K/V correction |
+| IrodoriTTS Schedule Config | Select the standard TTS sampling schedule (`linear` / `sway`) |
+| IrodoriTTS Trim Tail Config | Configure trimming of trailing silence and flat audio sections |
+| IrodoriTTS LoRA Stack | Build LoRA settings; see current limitations below |
+| IrodoriTTS Save Audio | Save `AUDIO` as WAV, MP3, or FLAC |
+| IrodoriTTS Emoji Picker | Copy performance-direction emoji to the clipboard; no input or output sockets |
 
 ### Image Tools
 
-カテゴリは`ComfyUIExtensions/Image/analysis`と`ComfyUIExtensions/Image/portrait`です。
+Categories: `ComfyUIExtensions/Image/analysis` and `ComfyUIExtensions/Image/portrait`.
 
-| ノード名 | 機能・出力 |
+| Node | Function and outputs |
 | --- | --- |
-| Image Analysis (imgutils) | `face` / `head` / `censor` / `nudenet` / `wd14` / `ocr`の解析結果をJSON文字列で出力 |
-| WD14 ViT Scores | WD14 ViTのタグスコアをJSON文字列で出力。`tags`はカンマ区切り、空欄なら全タグ |
-| Heatmap Censor (WD14 ViT) | タグのヒートマップに基づくぼかし・ピクセル化。処理済み`IMAGE`とラベルのJSON文字列を出力 |
-| Object Mask (MobileSAM) | 矩形座標`x0, y0, x1, y1`で指定した対象の`MASK`を生成 |
-| Character Segment (imgutils) | ISNetISでキャラクターを切り抜き、`IMAGE`と`foreground_mask`を出力。`scale`は1024固定 |
-| Save RGBA | `IMAGE`と`foreground_mask`を透過PNGとして保存 |
+| Image Analysis (imgutils) | Return `face`, `head`, `censor`, `nudenet`, `wd14`, or `ocr` analysis as a JSON string |
+| WD14 ViT Scores | Return WD14 ViT tag scores as JSON; `tags` accepts a comma-separated list, or leave it blank for all tags |
+| Heatmap Censor (WD14 ViT) | Apply blur or pixelation using tag heatmaps; return the processed `IMAGE` and labels as JSON |
+| Object Mask (MobileSAM) | Generate a `MASK` for an object specified by a rectangle (`x0, y0, x1, y1`) |
+| Character Segment (imgutils) | Extract a character using ISNetIS; return `IMAGE` and `foreground_mask`, with `scale` fixed at 1024 |
+| Save RGBA | Save `IMAGE` and `foreground_mask` as a transparent PNG |
 
-解析・WD14スコア・ヒートマップ・MobileSAMの入力は1枚のRGB画像です。Character SegmentとSave RGBAは画像バッチに対応します。
+Analysis, WD14 scores, heatmaps, and MobileSAM accept one RGB image at a time. Character Segment and Save RGBA support image batches.
 
-### テキスト・動画・漫画・VRM・モデルローダー
+### Text, video, comics, VRM, and model loaders
 
-カテゴリは`ComfyUIExtensions/Text`・`Video`・`Comic`・`Avatar`・`model loaders`です。
+Categories under `ComfyUIExtensions`: `Text`, `Video`, `Comic`, `Avatar`, and `model loaders`.
 
-| ノード名 | 機能・出力 |
+| Node | Function and outputs |
 | --- | --- |
-| Text Completion | JSONリクエストからOpenAI互換サービスへテキスト・画像条件の生成を要求し、文字列を出力 |
-| Release Local Text Model | 対応するローカルテキストサービスのモデル解放を要求し、解放したかを真偽値で出力 |
-| Sol-H3-Spark | テキスト、先頭・末尾フレーム、参照メディアを条件に動画を生成し、成果物のmanifestを出力 |
-| Comic Page | IMAGEバッチを列数・余白・右読み順に従って1ページへ配置 |
-| VRM Starter | 技術確認用のVRM・ポスター・Blenderシーンを作成 |
-| VRM Dance | input内のVRMと動画から2D姿勢を抽出し、アニメーション動画・編集用Blenderシーンなどを出力 |
-| CheckpointLoaderSimple / UNETLoader / CLIPLoader / VAELoader | 標準ローダーの読み込み処理に、モデル内容のSHA-256によるキャッシュ判定を追加 |
+| Text Completion | Send a JSON request to an OpenAI-compatible service for text or image-conditioned generation; return a string |
+| Release Local Text Model | Request model unloading from a supported local text service; return whether a model was released |
+| Sol-H3-Spark | Generate video from text, first/last frames, or reference media; return an artifact manifest |
+| Comic Page | Arrange an IMAGE batch into a page using column count, gutters, and reading direction |
+| VRM Starter | Create a starter VRM, poster, and Blender scene for technical validation |
+| VRM Dance | Extract 2D poses from an input video and animate an input VRM; export video and an editable Blender scene |
+| CheckpointLoaderSimple / UNETLoader / CLIPLoader / VAELoader | Use standard ComfyUI loading with SHA-256 content fingerprints for cache invalidation |
 
-モデルローダーは同名・同容量の重みの差し替えも検知します。Irodori、YuE2、Sol-H3-Sparkにもモデル内容を使うキャッシュ判定があります。大きな重みの初回ハッシュ計算には時間がかかる場合があります。
+The model loaders detect replaced weights even when filenames and sizes stay the same. Irodori, YuE2, and Sol-H3-Spark also use model content in cache decisions. Initial hashing of large weights may take time.
 
-[ノード・設定・モデル識別API](docs/media.md)、[Sol-H3-Sparkのセットアップ](docs/sol-h3-spark.md)を参照してください。
+See [nodes, configuration, and model identity APIs](docs/media.md) and [Sol-H3-Spark setup](docs/sol-h3-spark.md).
 
-## 必要環境
+## Requirements
 
-- `comfy_api.latest` Extension APIとcache providerのprompt lifecycleに対応したComfyUI
-- ComfyUIと[requirements.txt](requirements.txt)の依存パッケージに対応したPython環境
-- Irodori-TTS v4.1-Smallを使う場合はPyTorch 2.10以降（`requirements.txt`に記載の要件）
-- 依存パッケージとモデルの取得にGitとインターネット接続
+- ComfyUI with the `comfy_api.latest` Extension API and cache-provider prompt lifecycle support
+- A Python environment compatible with ComfyUI and [requirements.txt](requirements.txt)
+- PyTorch 2.10 or later for Irodori-TTS v4.1-Small, as specified in `requirements.txt`
+- Git and internet access to obtain dependencies and models
 
-PyTorchとtorchaudioはComfyUI側の環境を使用します。`requirements.txt`からは意図的に除外しています。音声処理にはtorchcodec、モデル処理にはtransformers・DACVAE、画像処理にはdghs-imgutils・timm・ultralyticsなどを使用します。
+PyTorch and torchaudio come from the ComfyUI environment and are deliberately omitted from `requirements.txt`. Dependencies include torchcodec for audio, transformers and DACVAE for model inference, and dghs-imgutils, timm, and ultralytics for image processing.
 
-## インストール
+## Installation
 
-### Linux・仮想環境版
+### Linux / virtual environment
 
-ComfyUIが使用する仮想環境を有効にして実行します。パスは環境に合わせて変更してください。
+Activate the Python environment used by ComfyUI, then run the following commands with the appropriate path:
 
 ```bash
 cd /path/to/ComfyUI
@@ -91,9 +85,9 @@ git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git custom_nodes/C
 python -m pip install -r custom_nodes/ComfyUI-Extensions/requirements.txt
 ```
 
-### Windowsポータブル版（PowerShell）
+### Windows portable (PowerShell)
 
-`ComfyUI`と`python_embeded`が並ぶポータブル版のルートから実行します。
+Run from the portable installation root containing both `ComfyUI` and `python_embeded`:
 
 ```powershell
 Set-Location -LiteralPath "C:\path\to\ComfyUI_windows_portable"
@@ -101,28 +95,26 @@ git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git .\ComfyUI\cust
 .\python_embeded\python.exe -m pip install -r .\ComfyUI\custom_nodes\ComfyUI-Extensions\requirements.txt
 ```
 
-インストール後はComfyUIを再起動します。更新時はこのリポジトリで`git pull`を実行し、同じPython環境で依存関係を再インストールして再起動してください。
+Restart ComfyUI after installation. To update, run `git pull` in this repository, reinstall dependencies in the same Python environment, and restart ComfyUI.
 
-## 機能別の追加セットアップ
+## Additional setup by feature
 
-モデル本体と専用ランタイムは同梱していません。`requirements.txt`のインストールに加え、使う機能に応じて準備してください。
+Model weights and dedicated runtimes are not bundled. In addition to installing `requirements.txt`, prepare the components needed for your chosen features.
 
-| 機能 | 追加で準備するもの |
+| Feature | Additional setup |
 | --- | --- |
-| Text Completion | 起動済みのOpenAI互換テキスト・VLMサービス。ComfyUIの環境変数`COMFYUI_EXTENSIONS_OPENAI_BASE_URL`（既定`http://127.0.0.1:8888/v1`）、`COMFYUI_EXTENSIONS_OPENAI_MODEL`、必要に応じて`COMFYUI_EXTENSIONS_OPENAI_API_KEY`を設定 |
-| YuE2 | 独立Python環境と取得済みモデル・VAE、`ComfyUI/runtimes/YuE2/comfyui.json`。別パスは`COMFYUI_YUE2_CONFIG`で指定。[詳細](docs/yue2.md) |
-| Sol-H3-Spark | 専用ランタイム・モデル・コンテナ、ffmpeg / ffprobe。設定の既定位置は`ComfyUI/runtimes/sol-h3-spark/config.json`、変更は`COMFYUI_EXTENSIONS_SOL_CONFIG`で指定。[詳細](docs/sol-h3-spark.md) |
-| VRM | Blenderとその環境へのVRM Add-on導入。動画処理にはffmpegも必要。Blenderは`COMFYUI_EXTENSIONS_BLENDER`またはPATHで指定 |
+| Text Completion | A running OpenAI-compatible text/VLM service. Set `COMFYUI_EXTENSIONS_OPENAI_BASE_URL` (default: `http://127.0.0.1:8888/v1`), `COMFYUI_EXTENSIONS_OPENAI_MODEL`, and, if required, `COMFYUI_EXTENSIONS_OPENAI_API_KEY` in the ComfyUI environment |
+| YuE2 | A separate Python environment, downloaded model/VAE weights, and `ComfyUI/runtimes/YuE2/comfyui.json`. Override the configuration path with `COMFYUI_YUE2_CONFIG`. [Details](docs/yue2.md) |
+| Sol-H3-Spark | Dedicated runtimes, models, a container, and ffmpeg / ffprobe. Configuration defaults to `ComfyUI/runtimes/sol-h3-spark/config.json`; override it with `COMFYUI_EXTENSIONS_SOL_CONFIG`. [Details](docs/sol-h3-spark.md) |
+| VRM | Blender with the VRM Add-on installed in its environment. Video processing also requires ffmpeg. Select Blender through `COMFYUI_EXTENSIONS_BLENDER` or PATH |
 
-接続先・認証情報と専用ランタイムのパスはComfyUIホスト側で設定します。
+Configure service endpoints, credentials, and runtime paths on the ComfyUI host.
 
-## モデル配置・自動取得
+## Model locations and downloads
 
-動画・MVは `Sol-H3-Spark` ノードで実行します。
-H3の下書きからLTX-2.5の仕上げまでを拡張側で実行し、プラグインからはJSONで呼び出します。
-専用ランタイム・モデル・LTX-2.5アクセス承認の準備は [Sol-H3-Spark](docs/sol-h3-spark.md) を参照してください。
+The `Sol-H3-Spark` node handles video and music-video segments, from H3 drafts through LTX-2.5 finishing. Clients invoke it through workflow JSON. See [Sol-H3-Spark](docs/sol-h3-spark.md) for runtime setup, weights, and LTX-2.5 access approval.
 
-Irodori-TTSまたはCharacter Voiceのチェックポイントは、ComfyUIの`models/checkpoints`以下へ配置します。モデル本体はこのリポジトリに含まれません。
+Place Irodori-TTS and Character Voice checkpoints under ComfyUI's `models/checkpoints`. Model weights are not included in this repository.
 
 ```text
 ComfyUI/
@@ -130,71 +122,70 @@ ComfyUI/
    ├─ checkpoints/
    │  └─ irodori_tts/
    │     └─ model.safetensors
-   ├─ irodori/                 # Character Voice用の自動取得先
+   ├─ irodori/                 # Character Voice downloads
    │  ├─ codecs/
    │  ├─ tokenizers/
    │  └─ image_encoders/
    └─ huggingface/
-      └─ hub/                 # Image Tools用の自動取得先
+      └─ hub/                 # Image processing model downloads
 ```
 
-- Model Loaderはチェックポイント設定の`latent_dim`からcodecを選択します。32次元は`Aratako/Semantic-DACVAE-Japanese-32dim`、128次元は`facebook/dacvae-watermarked`です。それ以外はエラーになります。
-- 通常TTSのtokenizer・codecは、ローカルに存在しなければ必要に応じて取得されます。通常TTSでは`models/irodori`を保存先に指定しておらず、各ライブラリのキャッシュ設定に従います。
-- Character Voiceのtokenizer・codec・画像エンコーダーは`models/irodori`以下へ取得します。
-- Image Toolsは実行時にHugging Faceのキャッシュを`models/huggingface/hub`へ設定します。WD14 ViTには`SmilingWolf/wd-vit-tagger-v3`、MobileSAMには`dhkim2810/MobileSAM`を使用し、imgutils用のモデルも必要に応じて取得します。このキャッシュ設定は同じComfyUIプロセス内で共有されます。
+- Model Loader selects the codec from the checkpoint's `latent_dim`: 32 uses `Aratako/Semantic-DACVAE-Japanese-32dim`, and 128 uses `facebook/dacvae-watermarked`. Other values raise an error.
+- Standard TTS downloads its tokenizer and codec as needed. It follows each library's cache settings rather than explicitly using `models/irodori`.
+- Character Voice downloads tokenizers, codecs, and image encoders under `models/irodori`.
+- Image processing sets the Hugging Face cache to `models/huggingface/hub` at runtime. WD14 ViT uses `SmilingWolf/wd-vit-tagger-v3`; MobileSAM uses `dhkim2810/MobileSAM`. Additional imgutils models are downloaded as needed. This cache configuration is shared within the ComfyUI process.
 
-## 基本的な使い方
+## Basic usage
 
-### 通常TTS・VoiceDesign
+### Standard TTS and VoiceDesign
 
-1. `IrodoriTTS Model Loader`で対応チェックポイントを選び、`irodori_model_config`を`IrodoriTTS Sampler`へ接続します。
-2. Samplerの`text`に読み上げる文章を入力します。必要に応じてReference Audioの出力を`ref_config`へ、VoiceDesign Configの出力を`voice_design_config`へ接続します。VoiceDesignにはcaption条件に対応したモデルが必要です。
-3. Samplerの`audio`を音声プレビュー、または`IrodoriTTS Save Audio`へ接続して実行します。保存先の既定プレフィックスは`output/audio/IrodoriTTS`です。
+1. Select a compatible checkpoint in `IrodoriTTS Model Loader` and connect `irodori_model_config` to `IrodoriTTS Sampler`.
+2. Enter the speech text in the sampler's `text` input. Optionally connect Reference Audio to `ref_config` and VoiceDesign Config to `voice_design_config`. VoiceDesign requires a checkpoint that supports caption conditioning.
+3. Connect `audio` to an audio preview node or `IrodoriTTS Save Audio`, then run the workflow. The default save prefix is `output/audio/IrodoriTTS`.
 
-通常TTSはduration predictorを持つチェックポイントで音声長を自動推定します。predictorがない場合は30秒にフォールバックし、`duration_scale`は使用しません。`duration_scale`（既定1.0、範囲0.1〜3.0）は推定長に掛ける倍率で、生成長は0.5〜30秒の範囲に制限されます。手動秒数を指定するUIはありません。`trim_tail`は既定で有効なので、保存される音声は末尾処理によって短くなることがあります。
+Standard TTS estimates duration when the checkpoint has a duration predictor. Without one, it falls back to 30 seconds and ignores `duration_scale`. The scale defaults to 1.0, accepts 0.1–3.0, and multiplies the predicted duration; generation is limited to 0.5–30 seconds. There is no manual duration input. `trim_tail` is enabled by default, so the final audio may be shorter after trimming.
 
-Reference AudioはComfyUIの`input`内の音声・動画を選択でき、音声のアップロードにも対応します。`max_ref_seconds`は1〜120秒、既定120秒です。動画の音声抽出にはimageio-ffmpegまたはffmpegを使用します。
+Reference Audio accepts audio/video files in ComfyUI's `input` directory and supports audio uploads. `max_ref_seconds` accepts 1–120 seconds and defaults to 120. Audio extraction from video uses imageio-ffmpeg or ffmpeg.
 
 ### Character Voice
 
-同じModel LoaderでCharacter Voice対応チェックポイントを選び、`Irodori Character Voice Sampler`へ接続します。`character_image`は任意で、画像バッチの場合は先頭の1枚を使用します。
+Select a Character Voice checkpoint in the same Model Loader and connect it to `Irodori Character Voice Sampler`. `character_image` is optional; for image batches, only the first image is used.
 
-こちらは`seconds`で生成長を指定します（既定30秒、範囲1〜120秒）。CFG・Rescale・Trim Tailの設定を接続できますが、参照音声・VoiceDesign・LoRA・Scheduleの入力端子はありません。CFGの話者・caption設定と、Rescaleのspeaker K/V補正も使用しません。
+Set duration with `seconds` (default: 30; range: 1–120). CFG, Rescale, and Trim Tail settings are supported. There are no reference audio, VoiceDesign, LoRA, or Schedule inputs. Speaker/caption CFG settings and speaker K/V correction are not used.
 
-### キャラクター切り抜き・透過PNG保存
+### Character segmentation and transparent PNGs
 
-`Character Segment (imgutils)`の`image`と`foreground_mask`を、`Save RGBA`の同名入力へ接続します。マスクは1が不透明、0が透明です。保存先の既定プレフィックスは`output/image_tools/portrait`です。
+Connect `image` and `foreground_mask` from `Character Segment (imgutils)` to the matching inputs of `Save RGBA`. A mask value of 1 is opaque; 0 is transparent. The default save prefix is `output/image_tools/portrait`.
 
-MobileSAMで対象を選ぶ場合は、元画像上のピクセル座標で矩形を指定します。無効な矩形やマスクが得られない場合は、全て0のマスクを返します。
+For MobileSAM, specify the rectangle in pixel coordinates of the original image. Invalid rectangles or missing masks produce an all-zero mask.
 
-### テキスト・動画・漫画・VRMの基本操作
+### Text, video, comics, and VRM
 
-- テキスト生成: `Text Completion`の`request_json`に`{"user_prompt":"短い台詞を書いてください","system_prompt":"日本語で回答してください","log_tag":"example"}`を入力します。画像条件は`image_data_urls`、構造化出力は`response_format`で指定できます。ノードからのツール実行は無効です。
-- 漫画ページ: 同じサイズのコマ画像をIMAGEバッチにして`Comic Page`へ接続し、出力`page`を画像保存ノードへ接続します。作画・吹き出し・文字入れはこのノードの処理に含まれません。
-- 動画: `Sol-H3-Spark`で`task`を選択します。`t2va`はテキストのみ、`fl2va`は先頭または末尾フレーム、`ref2va`は画像または動画を含む参照入力を使います。ファイルはComfyUIの`input`内に配置します。
-- VRM: `VRM Starter`は技術確認用モデルを作成します。`VRM Dance`には`input`内の`avatar_file`と`source_video`を指定します。結果は`output/avatar/<id>/`へ保存され、元動画に音声があれば動画へ合成します。
+- **Text:** Set `Text Completion` → `request_json` to `{"user_prompt":"Write a short line of dialogue.","system_prompt":"Reply in English.","log_tag":"example"}`. Use `image_data_urls` for image conditioning and `response_format` for structured output. Tool execution is disabled in this node.
+- **Comics:** Feed an IMAGE batch of equally sized panels into `Comic Page`, then connect `page` to an image-saving node. This node arranges panels; drawing, speech bubbles, and lettering are separate steps.
+- **Video:** Select a `task` in `Sol-H3-Spark`. `t2va` accepts text only; `fl2va` uses a first or last frame; `ref2va` requires references containing an image or video. Place input files inside ComfyUI's `input` directory.
+- **VRM:** `VRM Starter` creates a model for technical validation. For `VRM Dance`, specify `avatar_file` and `source_video` from `input`. Results are saved to `output/avatar/<id>/`. Source audio, when present, is included in the output video.
 
-表示名・ノードID・カテゴリ・環境変数・APIパスを本拡張の名前に統一しています。旧識別子の互換エイリアスはありません。既存ワークフローは対象ノードを追加し直し、ホスト設定とAPIクライアントも本書の名前へ更新してください。
+Display names, node IDs, categories, environment variables, and API paths use the extension's current naming. There are no aliases for legacy identifiers. Re-add affected nodes in existing workflows and update host settings and API clients to the names documented here.
 
-## 現在の制約
+## Current limitations
 
-- YuE2はモデルの自動取得を行いません。利用時は`noncommercial=true`による非商用利用への明示的な同意が必要です。出力の`truncated=true`は生成が打ち切られたことを示します。
-- Sol-H3-Sparkの1回の生成は121フレーム・24fpsで、指定できる長さは4〜約5.04秒です。長尺の作品は呼び出し側で分割・連結します。
-- VRM Danceは2D姿勢に基づくアニメーションです。VRMAは出力せず、編集用シーンと動画を保存します。
+- YuE2 does not download models automatically. Use requires explicit agreement to noncommercial use through `noncommercial=true`. A `truncated=true` output indicates that generation was cut short.
+- Sol-H3-Spark generates 121 frames at 24 fps per run, with a selectable duration of 4–approximately 5.04 seconds. Clients must split and join longer works.
+- VRM Dance uses 2D pose-based animation. It saves an editable scene and video, but does not export VRMA.
+- **The LoRA UI and standard TTS runtime expect different formats.** LoRA Stack passes paths selected from files under `models/loras`, while the runtime requires an adapter directory containing `adapter_config.json` and weights. Selecting a LoRA file alone is therefore insufficient.
+- Standard TTS accepts at most one LoRA. LoRA Stack's `strength` is not passed to the inference request, so strength changes have no effect. Dynamic runtime LoRA loading cannot be combined with `compile_model=True`.
+- `runtime_cache_policy=offload_after_use` differs by sampler: standard TTS releases the cached runtime, while Character Voice moves it to CPU. `keep_gpu` retains it and `unload_after_use` discards it, subject to workflow-end cleanup described above.
 
-- **LoRAのUIと通常TTSランタイムの形式が一致していません。** LoRA Stackは`models/loras`のファイル一覧からパスを渡しますが、ランタイムは`adapter_config.json`と重みを含むアダプタディレクトリを要求します。このため、LoRAファイルを配置してノードで選択するだけでは利用できません。
-- 通常TTS Samplerが受け付けるLoRAは1個までです。LoRA Stackの`strength`は推論リクエストに渡されておらず、強度変更は反映されません。ランタイムでの動的LoRA読み込みは`compile_model=True`と併用できません。
-- `runtime_cache_policy=offload_after_use`の動作はSamplerによって異なります。通常TTSはキャッシュしたランタイムを解放し、Character VoiceはCPUへ退避します。`keep_gpu`は保持、`unload_after_use`は破棄します。
+## Troubleshooting
 
-## トラブルシューティング
+- **Missing nodes:** Check ComfyUI's startup log for import errors and install dependencies into the Python environment ComfyUI actually uses.
+- **Missing checkpoints:** Place them under `models/checkpoints`, then refresh the model list or restart ComfyUI.
+- **`config_json` or `latent_dim` errors:** Use a compatible checkpoint containing Irodori configuration metadata. Model Loader also lists checkpoints intended for other models.
+- **Slow first run:** Initial downloads and model initialization take time. Check console progress and network access.
+- **Insufficient VRAM for speech:** Use `codec_device=cpu` and `codec_precision=fp32` in Model Loader, plus `batch_size=1` and `decode_mode=sequential` in the sampler. Select `runtime_cache_policy=offload_after_use` or `unload_after_use` to release resources after generation.
+- **Image analysis batch errors:** Pass one image at a time to analysis, heatmap, and MobileSAM nodes.
 
-- ノードが表示されない: ComfyUIの起動ログにあるimportエラーを確認し、ComfyUIが使うPython環境へ依存関係をインストールしてください。
-- チェックポイントが表示されない: `models/checkpoints`以下に配置し、モデル一覧を更新するかComfyUIを再起動してください。
-- `config_json`や`latent_dim`のエラー: Irodori用の設定情報を含む対応チェックポイントか確認してください。Model Loaderの一覧には他用途のチェックポイントも表示されます。
-- 初回実行が長い: モデル取得や初期化が行われます。コンソールの進捗とネットワーク接続を確認してください。
-- 音声生成でVRAM不足: Model Loaderの`codec_device=cpu`、`codec_precision=fp32`、Samplerの`batch_size=1`、`decode_mode=sequential`を使用します。生成後の解放には`runtime_cache_policy=offload_after_use`または`unload_after_use`を指定します。
-- 画像解析でバッチ入力エラー: 解析・ヒートマップ・MobileSAMには画像を1枚ずつ渡してください。
+## License
 
-## ライセンス
-
-コードは[MIT License](LICENSE)で提供します。ダウンロードされるモデルと各依存ライブラリには、それぞれのライセンスが適用されます。
+Code is provided under the [MIT License](LICENSE). Downloaded models and dependencies retain their respective licenses.

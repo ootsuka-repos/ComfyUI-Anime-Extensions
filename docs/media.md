@@ -1,69 +1,41 @@
-# テキスト・動画・漫画・VRM・モデルローダー
+# Text, video, comics, VRM, and model loaders
 
-呼び出し側のプラグインはワークフロー JSON を持ち、ComfyUI API に直接送信します。
-推論や専用の Python 処理はこの拡張で実行し、別の Engine / Publisher API は起動しません。
+Client plugins own workflow JSON and submit it directly to the ComfyUI API. This extension runs inference and dedicated Python processing; it does not start a separate Engine or Publisher API.
 
-| ノード | 入出力 |
+| Node ID | Inputs and outputs |
 | --- | --- |
-| `ComfyUIExtensions.ComicPage` | IMAGE バッチを列数・余白・右読み順で1ページに配置 |
-| `ComfyUIExtensions.VRMStarter` | 名前から技術確認用の VRM・ポスター・Blender シーンを出力 |
-| `ComfyUIExtensions.VRMDance` | input 内の VRM と動画から RTMW の2D姿勢を抽出し、Blender で動画と編集用シーンを出力 |
+| `ComfyUIExtensions.ComicPage` | Arrange an IMAGE batch into a page with configurable columns, gutters, and right-to-left order |
+| `ComfyUIExtensions.VRMStarter` | Create a VRM, poster, and Blender scene for technical validation from a name |
+| `ComfyUIExtensions.VRMDance` | Extract RTMW 2D poses from a video and animate a VRM from `input`; export video and an editable Blender scene |
 
-VRM の Blender ブリッジと姿勢抽出は旧 Engine から移しました。
-新しいコードは旧リポジトリを import しません。
+The Blender bridge and pose extraction code are included in this extension and do not import the previous application repository.
 
-VRM には ComfyUI ホスト側の Blender、VRM Add-on、ffmpeg が必要です。
-Blender 実行ファイルは `COMFYUI_EXTENSIONS_BLENDER` で指定でき、既定は PATH の `blender` です。
-VRM Add-on はその Blender のスクリプト検索先へインストールしてください。
-RTMW は ComfyUI の既存 Python 環境で `rtmlib` と `onnxruntime` を使います。
-プラグイン側に仮想環境やモデルは作りません。
+VRM processing requires Blender, the VRM Add-on, and ffmpeg on the ComfyUI host. Set `COMFYUI_EXTENSIONS_BLENDER` to select Blender; the default is `blender` on PATH. Install the VRM Add-on in that Blender installation's script search path. RTMW uses `rtmlib` and `onnxruntime` in the existing ComfyUI Python environment. No environment or models are created inside the client plugin.
 
-入力ファイルは ComfyUI/input 内に限定します。結果は
-`output/avatar/<id>/` に保存し、history の `files` に取得用の記述を返します。
-処理ログも同じフォルダに残します。取消時には Blender / ffmpeg を停止し、
-姿勢抽出もフレーム間で取消を確認します。駆動動画に音声があれば出力動画へ合成します。
+Input files must be inside `ComfyUI/input`. Results and processing logs are saved to `output/avatar/<id>/`; the history entry's `files` field describes downloadable artifacts. Cancellation stops Blender and ffmpeg, and pose extraction checks for cancellation between frames. Source video audio, when present, is included in the output video.
 
-ワークフローの企画・分割・連結・納品物の検証はプラグインに移植した制作ライブラリ、または呼び出し側エージェントが担当します。
-ノード内から同じ ComfyUI キューへワークフローを送って完了待ちしないでください。
+The client production library or calling agent handles planning, splitting, joining, and delivery validation. Do not submit a workflow to the same ComfyUI queue from inside a node and wait for it to finish.
 
-## 元のテキスト・VLM生成処理
+## Text and vision generation
 
-`ComfyUIExtensions.TextCompletion` は旧生成コードのプロバイダ呼び出しを
-この拡張内で実行します。プラグインには台本・構成・校正のプロンプトと検証ロジックが残り、
-このノードへJSONを渡して結果を受け取ります。既存の構造化出力、画像入力、生成パラメータ、
-ローカルモデル再ロードの処理を保持しています。ノードからツール実行は許可しません。
-`TextModelRelease` は元のローカルモデル解放処理をComfyUIホストで実行します。
+`ComfyUIExtensions.TextCompletion` calls the configured provider from this extension. Client plugins retain prompts and validation logic for scripts, structure, and proofreading, then exchange JSON requests and results with the node. The backend supports structured output, image inputs, generation parameters, and local model reloading. Tool execution is disabled in the node. `ComfyUIExtensions.TextModelRelease` requests local model unloading from the ComfyUI host.
 
-ComfyUIプロセスの環境変数で `COMFYUI_EXTENSIONS_OPENAI_BASE_URL`、
-`COMFYUI_EXTENSIONS_OPENAI_MODEL` と必要な `COMFYUI_EXTENSIONS_OPENAI_API_KEY` を指定します。
-既定の接続先は旧実装と同じ `http://127.0.0.1:8888/v1` です。
-接続先・認証情報はワークフローの入力に含めません。任意のプロバイダが自動で起動するわけではなく、
-指定したテキスト/VLMプロバイダが起動している必要があります。
+Set `COMFYUI_EXTENSIONS_OPENAI_BASE_URL`, `COMFYUI_EXTENSIONS_OPENAI_MODEL`, and, if required, `COMFYUI_EXTENSIONS_OPENAI_API_KEY` in the ComfyUI process environment. The default endpoint is `http://127.0.0.1:8888/v1`. Endpoints and credentials are not workflow inputs. The selected text/VLM service must already be running; arbitrary providers are not started automatically.
 
-## 同名モデルの差し替え検知
+## Detecting replaced models
 
-`ComfyUIExtensions_CheckpointLoaderSimple`、`ComfyUIExtensions_UNETLoader`、
-`ComfyUIExtensions_CLIPLoader`、`ComfyUIExtensions_VAELoader` は標準ローダーの
-入出力と読込み処理を使い、ファイル内容のSHA-256をComfyUIのキャッシュ判定に追加します。
-同名・同容量の重みを交換した場合も再読込みし、内容が同じ更新日時だけの変更では再読込みしません。
-Irodori ModelLoaderと通常TTSの常駐ランタイムも、チェックポイントとcodecの内容を確認します。
+`ComfyUIExtensions_CheckpointLoaderSimple`, `ComfyUIExtensions_UNETLoader`, `ComfyUIExtensions_CLIPLoader`, and `ComfyUIExtensions_VAELoader` use the standard loaders' inputs, outputs, and loading logic, with SHA-256 file-content fingerprints added to ComfyUI's cache decisions. Replaced weights trigger reloading even when names and sizes match. A timestamp-only change with identical content does not. Irodori ModelLoader and the standard TTS resident runtime also check checkpoint and codec contents.
 
-プラグイン向けの `POST /ComfyUIExtensions/model-identity` は
-`{"models":[{"category":"checkpoints","name":"model.safetensors"}]}` を受け取り、
-登録済みモデルのサイズ・SHA-256を返します。`include_irodori_codec: true` で、
-指定したIrodoriチェックポイントに対応する取得済みcodecも含めます。モデルのロードや取得は行いません。
-ハッシュ計算は実行ループ外で行い、ファイル情報が変わるまで結果を再利用します。
-検査中の変更や未取得ファイルはエラーとなり、ファイル名だけの識別には戻しません。
+`POST /ComfyUIExtensions/model-identity` accepts:
 
-Sol-H3-SparkとYuE2も、使用する重み・codec・tokenizer等をキャッシュ判定に含めます。
-各ノードのハッシュ計算は別スレッドで行います。サーバー起動後の初回確認やファイル変更時は、
-大きな動画モデルの読込みに時間がかかる場合があります。変更がなければハッシュを再利用します。
+```json
+{"models":[{"category":"checkpoints","name":"model.safetensors"}]}
+```
 
-`POST /ComfyUIExtensions/sol-model-identity` に `{"task":"fl2va"}` を渡すと、
-そのタスクのモデル識別情報を `{"version":1,"sha256":"…"}` で返します。
-タスクは `t2va`・`fl2va`・`ref2va` に対応します。モデルの取得や推論は行いません。
-MVは制作開始時の識別情報を保存し、Solノードの任意入力 `expected_model_identity` へ渡します。
-ノードは実行直前に照合し、待機中にモデルが差し替わった場合も異なる重みで実行しません。
+It returns sizes and SHA-256 hashes for registered models. Add `"include_irodori_codec": true` to include the already downloaded codec associated with an Irodori checkpoint. The endpoint does not load or download models. Hashing runs outside the event loop, and results are reused until file metadata changes. Missing files or changes during inspection cause errors; the endpoint does not fall back to filename-only identification.
 
-VRM Danceも入力動画・VRMの内容で再利用を判定します。同名ファイルの差し替えで再実行し、
-元動画の音声が短い場合は無音を補って、生成したアニメーション全体を保持します。
+Sol-H3-Spark and YuE2 also include weights, codecs, tokenizers, and related files in cache decisions. Each node hashes files in a separate thread. Reading large video models can take time on the first check after startup or after files change. Unchanged files reuse cached hashes.
+
+`POST /ComfyUIExtensions/sol-model-identity` accepts `{"task":"fl2va"}` and returns a model identity in the form `{"version":1,"sha256":"…"}`. Supported tasks are `t2va`, `fl2va`, and `ref2va`. This endpoint does not download models or run inference. Music-video clients save the identity at production start and pass it to the Sol node's optional `expected_model_identity` input. The node checks it immediately before execution and refuses to run with different weights if models were replaced while the job was queued.
+
+VRM Dance also fingerprints the source video and VRM contents, so replacing a same-named file triggers execution. If the source audio is shorter than the generated animation, silence is appended to preserve the full video duration.
