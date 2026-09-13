@@ -14,9 +14,13 @@ class Extension(ComfyExtension):
 
 
 async def comfy_entrypoint() -> Extension:
+    from comfy_api.latest import ComfyAPI
     from aiohttp import web
     from server import PromptServer
     from .py.nodes.yue2 import runtime_status
+    from .py.model_lifecycle import model_lifecycle
+
+    await ComfyAPI().caching.register_provider(model_lifecycle)
 
     if hasattr(PromptServer, 'instance'):
         async def yue2_status(request):

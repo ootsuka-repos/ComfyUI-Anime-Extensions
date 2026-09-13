@@ -2,6 +2,13 @@
 
 ComfyUI向けのカスタムノード集です。Irodori-TTSの音声生成、画像を条件にしたCharacter Voice音声生成、Kanomemoの画像解析・切り抜き・ぼかし処理を提供します。
 
+ワークフロー終了時は、成功・失敗ともにモデルと推論キャッシュを自動解放します。
+ComfyUI管理モデルに加え、Irodori・Kanomemo・imgutilsの独自キャッシュも対象です。
+履歴と保存ファイルは保持し、次のワークフローでは必要なモデルを再ロードします。
+`COMFYUI_FORGE_AUTO_UNLOAD=0` をComfyUIの環境変数に設定すると、この動作を無効にできます。
+外部のQwenサービスはこの処理の対象外です。生成前のLLM解放も無効にして常駐させる場合は
+`DOUJIN_FORGE_OPENAI_RELEASE_BEFORE_COMFY=0` を併せて設定します。
+
 ## 提供するノード
 
 ### YuE2
