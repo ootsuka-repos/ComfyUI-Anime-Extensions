@@ -55,23 +55,42 @@ def uploaded_file(name: str) -> Path:
     return path
 
 
+def task_paths(config: dict, task: str) -> dict:
+    filename = Path(config["package"]) / "runtime/config.py"
+    spec = importlib.util.spec_from_file_location("forge_sol_upstream_config", filename)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.load_recipe(task)
+    paths = module.load_paths(config["paths"][task], task=task)
+    root = Path(paths["h3_model"])
+    # FastVideo initializes video geometry from this metadata even when T2VA
+    # skips native H3 VAE encode/decode and therefore needs no VAE weights.
+    json.loads((root / "vae/config.json").read_text())
+    components = ["transformer_ref" if task == "ref2va" else "transformer"]
+    if task != "t2va":
+        components.append("vae")
+    for component in components:
+        directory = root / component
+        json.loads((directory / "config.json").read_text())
+        index = json.loads((directory / "diffusion_pytorch_model.safetensors.index.json").read_text())
+        for shard in set(index["weight_map"].values()):
+            if not (directory / shard).is_file():
+                raise FileNotFoundError(f"Missing Sol {task} checkpoint shard: {directory / shard}")
+    return paths
+
+
 def runtime_status() -> dict:
     """Read the pinned recipe and task paths without loading GPU libraries."""
     result = {"implementation": "Sol-H3-Spark", "revision": SANA_REVISION, "tasks": {},
               "validation": "Filesystem and frozen recipe only; does not prove GPU inference"}
     try:
         config = runtime_config()
-        filename = Path(config["package"]) / "runtime/config.py"
-        spec = importlib.util.spec_from_file_location("forge_sol_upstream_config", filename)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
     except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
         result["error"] = str(error)
         return result
     for task in ("t2va", "fl2va", "ref2va"):
         try:
-            module.load_recipe(task)
-            module.load_paths(config["paths"][task], task=task)
+            task_paths(config, task)
             result["tasks"][task] = {"prepared": True}
         except (OSError, ValueError, KeyError) as error:
             result["tasks"][task] = {"prepared": False, "error": str(error)}
@@ -187,9 +206,8 @@ class ForgeSolH3(io.ComfyNode):
         if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
             raise RuntimeError("Install ffmpeg and ffprobe on the ComfyUI host")
         config = runtime_config()
+        task_paths(config, task)
         paths = Path(config["paths"][task]).expanduser()
-        if not paths.is_file():
-            raise RuntimeError(f"Sol {task} runtime preparation is incomplete: {paths}. Model files and the generic prompt cache must be prepared before inference.")
         output_root = Path(folder_paths.get_output_directory()).resolve()
         prefix = (output_root / output_prefix).resolve()
         if prefix == output_root or output_root not in prefix.parents:

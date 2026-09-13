@@ -53,6 +53,9 @@ ComfyUI/runtimes/
    hash-named blobs; use the upstream local download layout, or hard-link verified
    blobs to their official filenames under the runtime's checkpoint directory.
    Set `gemma_tokenizer` to the same named file as `offline_gemma`.
+   Keep native H3 `vae/config.json` even for T2VA: FastVideo initializes video
+   geometry from it before lazy loading. T2VA does not need native video VAE
+   weights; FL2VA and Ref2VA require every VAE shard for reference encoding.
 3. LTX-2.5 requires approved [Hugging Face access](https://huggingface.co/Lightricks/LTX-2.5)
    and local `hf auth login`. Credentials belong to the host; never put them in
    workflow JSON or send them in chat. A 403 means setup cannot proceed to inference.
@@ -125,8 +128,9 @@ endpoints are retained. Longer MVs use the plugin's timeline renderer, splitting
 intervals at 120 delivery frames and chaining continuation frames.
 Output history `files` contains `video.mp4` and `sol-report.json`.
 
-`GET /ComfyUIExtensions/Forge/SolH3/status` checks the frozen recipe and task path
-manifests without importing GPU libraries. The plugin checks it before recording
+`GET /ComfyUIExtensions/Forge/SolH3/status` checks the frozen recipe, task paths,
+H3 VAE metadata and task-specific H3 shards without importing GPU libraries.
+The node repeats these checks before creating a job. The plugin checks it before recording
 a submit intent. Missing prerequisites therefore do not queue work or leave an
 ambiguous submission receipt. `prepared` means filesystem preparation, not a
 successful GPU inference test.
