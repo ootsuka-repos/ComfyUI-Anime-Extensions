@@ -64,8 +64,11 @@ ComfyUI/runtimes/
    FastVideo/fastvideo-kernel into Stage1, and LTX core/pipelines/kernels into Stage2.
    Compile kernels for this GPU; Stage2 requires `all2all_cpp` even with one GPU.
    Follow upstream's separate FA4 and offline-context dependency targets.
-5. Build `Dockerfile.qwen` as `sol-h3-spark-qwen`; it retains the pinned NGC Torch
-   stack and ComfyUI v0.30.0. This source is separate from the live ComfyUI server.
+5. From this extension checkout, run
+   `docker build -f docker/sol-h3-qwen.Dockerfile -t sol-h3-spark-qwen .`.
+   It retains the pinned NGC Torch stack and ComfyUI v0.30.0, and supplies the
+   missing native audio dependency described below. This source is separate from
+   the live ComfyUI server.
    The upstream `qwen_python.sh` wrapper runs the container with no network and
    the current user's UID/GID. Its package/runtime/weight/source mounts preserve
    absolute paths. The weight mount should contain checkpoint files, not credentials.
@@ -93,7 +96,7 @@ Upstream `*-observed.txt` files are version inventories, not resolved install lo
 Do not install these conflicting stacks into live ComfyUI's Python or the plugin.
 Model files and the generic cache are never downloaded during a node invocation.
 
-On this GB10 host, the fresh build needed two dependency adjustments. The recorded
+On this GB10 host, the fresh build needed dependency adjustments. The recorded
 FA4 `apache-tvm-ffi==0.1.13rc1` is absent from PyPI and upstream tags; the published
 `0.1.13.post3` satisfies Quack 0.5.3's supported range and passed real FA4 GPU
 attention comparisons against FP32 reference math, with and without a causal mask.
@@ -107,6 +110,16 @@ then set `CUDA_HOME` to that environment's `site-packages/nvidia/cu13` directory
 and used its `bin/nvcc`. The live ComfyUI environment and system CUDA remain
 independent. Both environment import/GPU checks passed; these are preparation
 checks, not a claim of completed Sol model inference.
+
+Upstream's Qwen Dockerfile excludes TorchAudio while the NGC image does not
+provide it. ComfyUI's `comfy.sd` import therefore fails. The 2.10 release wheel
+and source also require a newer Torch C++ interface than NGC 25.11 contains.
+The extension Dockerfile compiles TorchAudio 2.9.1 revision
+`a224ab24a7f4797f6707051257265e223e12576f` against NGC's existing headers, with
+optional native audio CUDA kernels disabled. This preserves the prescribed Torch
+and Qwen GPU stack. The real Qwen wrapper passed `comfy.sd`/MiniMax imports,
+audio resampling and a BF16 GPU matrix multiplication. Stage1 owns actual audio
+sample encoding in its independent environment.
 
 ## Workflow inputs and outputs
 
