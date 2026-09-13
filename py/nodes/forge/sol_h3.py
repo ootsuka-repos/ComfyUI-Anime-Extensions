@@ -238,6 +238,10 @@ class ForgeSolH3(io.ComfyNode):
                    SOL_H3_SPARK_COMFY_ROOT=config["comfy_root"])
         for key in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "DOUJIN_FORGE_OPENAI_API_KEY", "OPENAI_API_KEY"):
             env.pop(key, None)
+        # Comfy enables cudaMallocAsync, which cannot run H3 VAE CUDA graphs.
+        # Let Sol own allocator settings, including Stage2's expandable segments.
+        for key in ("PYTORCH_ALLOC_CONF", "PYTORCH_CUDA_ALLOC_CONF"):
+            env.pop(key, None)
         package = Path(config["package"])
         # Sol owns isolated CUDA workers; release Comfy's resident model weights
         # before starting them. No shared LLM service is stopped by this node.

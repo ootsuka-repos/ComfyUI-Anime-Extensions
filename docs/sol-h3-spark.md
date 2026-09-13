@@ -157,6 +157,10 @@ also on cancellation; there is no hidden permanent GPU service.
 Comfy's own resident models are unloaded before launching Sol. The extension does
 not stop independent services. A large external LLM may need to be paused by the
 host operator after verifying that it is idle; restore it when GPU testing ends.
+Comfy's allocator environment is removed from Sol's child environment: its
+`cudaMallocAsync` backend cannot run the native H3 VAE's CUDA graph pool checks.
+Sol then uses the default native allocator and its prescribed Stage2 expandable
+segments. This does not change the allocator used by the live ComfyUI process.
 Failed jobs retain request JSON, `process.log` and worker logs under `jobs/`.
 Successful jobs remove staged media and large transient latent tensors while
 retaining receipts and logs. The model cache is shared and preserved.
