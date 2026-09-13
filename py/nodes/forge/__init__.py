@@ -236,4 +236,6 @@ class ForgeComicPage(io.ComfyNode):
         return io.NodeOutput(page)
 
 
-nodes = [ForgeVRMStarter, ForgeVRMDance, ForgeComicPage]
+from .text import ForgeTextCompletion, ForgeTextModelRelease
+
+nodes = [ForgeVRMStarter, ForgeVRMDance, ForgeComicPage, ForgeTextCompletion, ForgeTextModelRelease]
