@@ -1,4 +1,4 @@
-"""Shared imgutils analysis nodes for every Doujin Forge product."""
+"""Shared imgutils analysis nodes for every ComfyUI-product."""
 from __future__ import annotations
 
 import json
@@ -22,7 +22,7 @@ _OPERATIONS = ("face", "head", "censor", "nudenet", "wd14", "ocr")
 
 def _to_pil(image: torch.Tensor) -> Image.Image:
     if image.ndim != 4 or image.shape[0] != 1 or image.shape[-1] < 3:
-        raise RuntimeError("Kanomemo imgutils analysis expects exactly one RGB IMAGE")
+        raise RuntimeError("imgutils analysis expects exactly one RGB IMAGE")
     rgb = image[0, ..., :3].detach().to(device="cpu", dtype=torch.float32).clamp(0.0, 1.0)
     pixels = (rgb.contiguous().numpy() * 255.0).round().astype(np.uint8)
     return Image.fromarray(pixels, "RGB")
@@ -106,15 +106,15 @@ def _analyse(
         }
 
 
-class KanomemoImgutilsAnalysis(io.ComfyNode):
+class ImageAnalysis(io.ComfyNode):
     """Run non-generative imgutils checks in the shared ComfyUI process."""
 
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id=mk_name("Kanomemo", "AnalyzeImgutils"),
-            display_name="Kanomemo Image Analysis (imgutils)",
-            category="Kanomemo/analysis",
+            node_id=mk_name("Image", "AnalyzeImgutils"),
+            display_name="Image Analysis (imgutils)",
+            category="ComfyUIExtensions/Image/analysis",
             inputs=[
                 io.Image.Input("image"),
                 io.Combo.Input("operation", options=list(_OPERATIONS), default="face"),
@@ -160,15 +160,15 @@ def _mobile_sam_model():
         return _MOBILE_SAM
 
 
-class KanomemoMobileSAMMask(io.ComfyNode):
+class ObjectMask(io.ComfyNode):
     """Segment one detection box with shared MobileSAM."""
 
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id=mk_name("Kanomemo", "MobileSAMMask"),
-            display_name="Kanomemo Object Mask (MobileSAM)",
-            category="Kanomemo/analysis",
+            node_id=mk_name("Image", "MobileSAMMask"),
+            display_name="Object Mask (MobileSAM)",
+            category="ComfyUIExtensions/Image/analysis",
             inputs=[
                 io.Image.Input("image"),
                 io.Int.Input("x0", default=0, min=0),

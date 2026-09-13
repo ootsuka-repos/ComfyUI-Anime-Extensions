@@ -1,6 +1,6 @@
-# Sol-H3-Spark for Doujin Forge
+# Sol-H3-Spark for ComfyUI-Extensions
 
-`ComfyUIExtensions.Forge.SolH3` runs the official Sol-H3-Spark pipeline as owned
+`ComfyUIExtensions.SolH3` runs the official Sol-H3-Spark pipeline as owned
 child processes. Model execution belongs here; the Codex/Claude plugin contains
 editable workflow JSON and the existing production planning/composition library.
 Legacy MiniMax pruned/fused/VDN/SLA graphs are not used as fallbacks.
@@ -89,7 +89,7 @@ ComfyUI/runtimes/
    ```
 
    To record a setup still downloading, add `--allow-pending`; this explicitly does
-   not make inference ready. `COMFYUI_FORGE_SOL_CONFIG` can select another config path.
+   not make inference ready. `COMFYUI_EXTENSIONS_SOL_CONFIG` can select another config path.
    Restart ComfyUI after installing/updating the extension, once its queue is idle.
 
 Upstream `*-observed.txt` files are version inventories, not resolved install locks.
@@ -144,7 +144,7 @@ endpoints are retained. Longer MVs use the plugin's timeline renderer, splitting
 intervals at 120 delivery frames and chaining continuation frames.
 Output history `files` contains `video.mp4` and `sol-report.json`.
 
-`GET /ComfyUIExtensions/Forge/SolH3/status` checks the frozen recipe, task paths,
+`GET /ComfyUIExtensions/SolH3/status` checks the frozen recipe, task paths,
 H3 VAE metadata and task-specific H3 shards without importing GPU libraries.
 The node repeats these checks before creating a job. The plugin checks it before recording
 a submit intent. Missing prerequisites therefore do not queue work or leave an
@@ -191,8 +191,7 @@ commands including model loading, full warmup and delivery took 459.9–552.6 se
 The three video modes delivered 120 frames; the MV delivered 96 frames with its supplied
 music. Frame review found subtitle-like text in T2VA and changes to reference details
 in conditioned tasks. Audio was checked numerically, without subjective listening.
-Detailed receipts are retained under
-`~/.local/share/doujin-forge/verification/20260913-all-models/REPORT.md`.
+Detailed receipts are retained on the validation host and are not bundled here.
 
 Code is MIT under this repository's license. Upstream code and downloaded weights
 retain their own terms; see the pinned package's `THIRD_PARTY_NOTICES.md`.

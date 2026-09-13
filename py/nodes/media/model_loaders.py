@@ -21,11 +21,11 @@ def _schema(name, loader, outputs):
             options = specification[0]
             settings = specification[1] if len(specification) > 1 else {}
             inputs.append(io.Combo.Input(key, options=options, optional=group == "optional", **settings))
-    return io.Schema(node_id="ComfyUIExtensions_Forge_" + name, display_name="Forge " + name,
-                     category="Doujin Forge/model loaders", inputs=inputs, outputs=outputs)
+    return io.Schema(node_id="ComfyUIExtensions_" + name, display_name=name,
+                     category="ComfyUIExtensions/model loaders", inputs=inputs, outputs=outputs)
 
 
-class ForgeCheckpointLoaderSimple(io.ComfyNode):
+class CheckpointLoaderSimple(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return _schema("CheckpointLoaderSimple", native.CheckpointLoaderSimple,
@@ -43,7 +43,7 @@ class ForgeCheckpointLoaderSimple(io.ComfyNode):
         return io.NodeOutput(*native.CheckpointLoaderSimple().load_checkpoint(ckpt_name))
 
 
-class ForgeUNETLoader(io.ComfyNode):
+class UNETLoader(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return _schema("UNETLoader", native.UNETLoader, [io.Model.Output()])
@@ -60,7 +60,7 @@ class ForgeUNETLoader(io.ComfyNode):
         return io.NodeOutput(*native.UNETLoader().load_unet(unet_name, weight_dtype))
 
 
-class ForgeCLIPLoader(io.ComfyNode):
+class CLIPLoader(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return _schema("CLIPLoader", native.CLIPLoader, [io.Clip.Output()])
@@ -77,7 +77,7 @@ class ForgeCLIPLoader(io.ComfyNode):
         return io.NodeOutput(*native.CLIPLoader().load_clip(clip_name, type, device))
 
 
-class ForgeVAELoader(io.ComfyNode):
+class VAELoader(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return _schema("VAELoader", native.VAELoader, [io.Vae.Output()])
@@ -101,4 +101,4 @@ class ForgeVAELoader(io.ComfyNode):
         return io.NodeOutput(*native.VAELoader().load_vae(vae_name))
 
 
-nodes = [ForgeCheckpointLoaderSimple, ForgeUNETLoader, ForgeCLIPLoader, ForgeVAELoader]
+nodes = [CheckpointLoaderSimple, UNETLoader, CLIPLoader, VAELoader]

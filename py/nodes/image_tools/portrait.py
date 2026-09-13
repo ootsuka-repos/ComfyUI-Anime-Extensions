@@ -1,4 +1,4 @@
-"""Kanomemo portrait segmentation nodes backed by imgutils ISNetIS."""
+"""portrait segmentation nodes backed by imgutils ISNetIS."""
 from __future__ import annotations
 
 import os
@@ -31,16 +31,16 @@ def _configure_huggingface_cache() -> None:
     try:
         import huggingface_hub.constants as hub_constants
     except ImportError as exc:
-        raise RuntimeError("Kanomemo imgutils requires huggingface_hub") from exc
+        raise RuntimeError("imgutils requires huggingface_hub") from exc
     hub_constants.HF_HOME = str(_HF_HOME)
     hub_constants.HF_HUB_CACHE = str(_HF_HUB_CACHE)
 
 
 def _segment_one(image: torch.Tensor, *, scale: int) -> tuple[torch.Tensor, torch.Tensor]:
     if image.ndim != 3 or image.shape[-1] < 3:
-        raise RuntimeError("Kanomemo imgutils expects an RGB IMAGE tensor")
+        raise RuntimeError("imgutils expects an RGB IMAGE tensor")
     if scale != _ISNETIS_SCALE:
-        raise RuntimeError(f"Kanomemo imgutils requires fixed scale {_ISNETIS_SCALE}")
+        raise RuntimeError(f"imgutils requires fixed scale {_ISNETIS_SCALE}")
 
     rgb = image[..., :3].detach().to(device="cpu", dtype=torch.float32).clamp(0.0, 1.0)
     source = Image.fromarray((rgb.numpy() * 255.0).round().astype(np.uint8), "RGB")
@@ -50,7 +50,7 @@ def _segment_one(image: torch.Tensor, *, scale: int) -> tuple[torch.Tensor, torc
             from imgutils.segment import segment_rgba_with_isnetis
         except ImportError as exc:
             raise RuntimeError(
-                "Kanomemo imgutils is not installed in the shared ComfyUI environment"
+                "imgutils is not installed in the shared ComfyUI environment"
             ) from exc
         _, rgba = segment_rgba_with_isnetis(source, scale=scale)
 
@@ -60,15 +60,15 @@ def _segment_one(image: torch.Tensor, *, scale: int) -> tuple[torch.Tensor, torc
     return segmented, foreground_mask
 
 
-class KanomemoImgutilsSegmentRGBA(io.ComfyNode):
+class CharacterSegment(io.ComfyNode):
     """Extract an anime character with imgutils.segment_rgba_with_isnetis."""
 
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id=mk_name("Kanomemo", "SegmentRGBA"),
-            display_name="Kanomemo Character Segment (imgutils)",
-            category="Kanomemo/portrait",
+            node_id=mk_name("Image", "SegmentRGBA"),
+            display_name="Character Segment (imgutils)",
+            category="ComfyUIExtensions/Image/portrait",
             inputs=[
                 io.Image.Input("image"),
                 io.Int.Input(
@@ -96,19 +96,19 @@ class KanomemoImgutilsSegmentRGBA(io.ComfyNode):
         return io.NodeOutput(torch.stack(segmented, dim=0), torch.stack(masks, dim=0))
 
 
-class KanomemoSaveRGBA(io.ComfyNode):
+class SaveRGBA(io.ComfyNode):
     """Save an IMAGE plus foreground mask as a transparent PNG output."""
 
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id=mk_name("Kanomemo", "SaveRGBA"),
-            display_name="Kanomemo Save RGBA",
-            category="Kanomemo/portrait",
+            node_id=mk_name("Image", "SaveRGBA"),
+            display_name="Save RGBA",
+            category="ComfyUIExtensions/Image/portrait",
             inputs=[
                 io.Image.Input("image"),
                 io.Mask.Input("foreground_mask"),
-                io.String.Input("filename_prefix", default="kanomemo/portrait"),
+                io.String.Input("filename_prefix", default="image_tools/portrait"),
             ],
             outputs=[io.Image.Output(display_name="image")],
             is_output_node=True,
@@ -122,9 +122,9 @@ class KanomemoSaveRGBA(io.ComfyNode):
         filename_prefix: str,
     ):
         if image.ndim != 4 or foreground_mask.ndim != 3:
-            raise RuntimeError("Kanomemo Save RGBA expects batched IMAGE and MASK values")
+            raise RuntimeError("Save RGBA expects batched IMAGE and MASK values")
         if image.shape[0] != foreground_mask.shape[0]:
-            raise RuntimeError("Kanomemo Save RGBA image/mask batch sizes differ")
+            raise RuntimeError("Save RGBA image/mask batch sizes differ")
         output_dir, filename, counter, subfolder, _ = folder_paths.get_save_image_path(
             str(filename_prefix),
             folder_paths.get_output_directory(),
@@ -134,7 +134,7 @@ class KanomemoSaveRGBA(io.ComfyNode):
         results: list[ui.SavedResult] = []
         for index, (rgb_tensor, alpha_tensor) in enumerate(zip(image, foreground_mask, strict=True)):
             if tuple(rgb_tensor.shape[:2]) != tuple(alpha_tensor.shape):
-                raise RuntimeError("Kanomemo Save RGBA image/mask dimensions differ")
+                raise RuntimeError("Save RGBA image/mask dimensions differ")
             rgb = rgb_tensor[..., :3].detach().to(device="cpu", dtype=torch.float32).clamp(0.0, 1.0)
             alpha = alpha_tensor.detach().to(device="cpu", dtype=torch.float32).clamp(0.0, 1.0)
             rgba = np.concatenate(

@@ -23,13 +23,13 @@ def _load_analysis():
     _package(prefix, root)
     _package(f"{prefix}.py", root / "py")
     _package(f"{prefix}.py.nodes", root / "py" / "nodes")
-    _package(f"{prefix}.py.nodes.kanomemo", root / "py" / "nodes" / "kanomemo")
+    _package(f"{prefix}.py.nodes.image_tools", root / "py" / "nodes" / "image_tools")
 
     node_utils = ModuleType(f"{prefix}.py.node_utils")
     node_utils.mk_name = lambda *parts: ".".join(parts)
     sys.modules[node_utils.__name__] = node_utils
 
-    portrait = ModuleType(f"{prefix}.py.nodes.kanomemo.portrait")
+    portrait = ModuleType(f"{prefix}.py.nodes.image_tools.portrait")
     portrait._configure_huggingface_cache = lambda: None
     sys.modules[portrait.__name__] = portrait
 
@@ -41,8 +41,8 @@ def _load_analysis():
     sys.modules["comfy_api"] = comfy_api
     sys.modules["comfy_api.latest"] = latest
 
-    name = f"{prefix}.py.nodes.kanomemo.analysis"
-    spec = importlib.util.spec_from_file_location(name, root / "py" / "nodes" / "kanomemo" / "analysis.py")
+    name = f"{prefix}.py.nodes.image_tools.analysis"
+    spec = importlib.util.spec_from_file_location(name, root / "py" / "nodes" / "image_tools" / "analysis.py")
     if spec is None or spec.loader is None:
         raise RuntimeError("analysis.py could not be loaded")
     module = importlib.util.module_from_spec(spec)

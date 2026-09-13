@@ -48,10 +48,10 @@ def run_process(command: list[str], directory: Path) -> None:
 
 
 def avatar(mode: str, name: str, source_video: str = "", avatar_file: str = ""):
-    blender = shutil.which(os.environ.get("COMFYUI_FORGE_BLENDER", "blender"))
+    blender = shutil.which(os.environ.get("COMFYUI_EXTENSIONS_BLENDER", "blender"))
     if not blender:
         raise RuntimeError(
-            "Install Blender with the VRM addon in the ComfyUI host, or set COMFYUI_FORGE_BLENDER"
+            "Install Blender with the VRM addon in the ComfyUI host, or set COMFYUI_EXTENSIONS_BLENDER"
         )
     source = input_file(source_video) if mode == "retarget" else None
     input_vrm = input_file(avatar_file) if mode == "retarget" else None
@@ -60,7 +60,7 @@ def avatar(mode: str, name: str, source_video: str = "", avatar_file: str = ""):
         raise RuntimeError(
             "Install ffmpeg on the ComfyUI host for VRM video/audio output"
         )
-    relative = "doujin-forge/avatar/" + uuid.uuid4().hex
+    relative = "avatar/" + uuid.uuid4().hex
     directory = Path(folder_paths.get_output_directory()) / relative
     directory.mkdir(parents=True)
     command = [
@@ -157,13 +157,13 @@ def avatar(mode: str, name: str, source_video: str = "", avatar_file: str = ""):
     return io.NodeOutput(manifest, ui={"text": [manifest], "files": files})
 
 
-class ForgeVRMStarter(io.ComfyNode):
+class VRMStarter(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="ComfyUIExtensions.Forge.VRMStarter",
-            display_name="Forge VRM Starter",
-            category="Doujin Forge/Avatar",
+            node_id="ComfyUIExtensions.VRMStarter",
+            display_name="VRM Starter",
+            category="ComfyUIExtensions/Avatar",
             inputs=[io.String.Input("name", default="Avatar")],
             outputs=[io.String.Output("manifest")],
             is_output_node=True,
@@ -174,13 +174,13 @@ class ForgeVRMStarter(io.ComfyNode):
         return avatar("starter", name)
 
 
-class ForgeVRMDance(io.ComfyNode):
+class VRMDance(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="ComfyUIExtensions.Forge.VRMDance",
-            display_name="Forge VRM Dance",
-            category="Doujin Forge/Avatar",
+            node_id="ComfyUIExtensions.VRMDance",
+            display_name="VRM Dance",
+            category="ComfyUIExtensions/Avatar",
             inputs=[
                 io.String.Input("name", default="Avatar"),
                 io.String.Input("source_video"),
@@ -205,13 +205,13 @@ class ForgeVRMDance(io.ComfyNode):
         return avatar("retarget", name, source_video, avatar_file)
 
 
-class ForgeComicPage(io.ComfyNode):
+class ComicPage(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="ComfyUIExtensions.Forge.ComicPage",
-            display_name="Forge Comic Page",
-            category="Doujin Forge/Comic",
+            node_id="ComfyUIExtensions.ComicPage",
+            display_name="Comic Page",
+            category="ComfyUIExtensions/Comic",
             inputs=[
                 io.Image.Input("panels"),
                 io.Int.Input("columns", default=2, min=1),
@@ -249,8 +249,8 @@ class ForgeComicPage(io.ComfyNode):
         return io.NodeOutput(page)
 
 
-from .text import ForgeTextCompletion, ForgeTextModelRelease
-from .sol_h3 import ForgeSolH3
+from .text import TextCompletion, TextModelRelease
+from .sol_h3 import SolH3
 from . import sol_status  # noqa: F401 — register the read-only runtime route
 
-nodes = [ForgeVRMStarter, ForgeVRMDance, ForgeComicPage, ForgeTextCompletion, ForgeTextModelRelease, ForgeSolH3]
+nodes = [VRMStarter, VRMDance, ComicPage, TextCompletion, TextModelRelease, SolH3]

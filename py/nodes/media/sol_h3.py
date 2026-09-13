@@ -26,7 +26,7 @@ NATIVE_FRAMES, FPS = 121, 24
 
 def runtime_config() -> dict:
     default = Path(folder_paths.base_path) / "runtimes/sol-h3-spark/config.json"
-    filename = Path(os.environ.get("COMFYUI_FORGE_SOL_CONFIG", str(default))).expanduser()
+    filename = Path(os.environ.get("COMFYUI_EXTENSIONS_SOL_CONFIG", str(default))).expanduser()
     if not filename.is_file():
         raise RuntimeError(f"Sol-H3-Spark runtime is not prepared: {filename}. See docs/sol-h3-spark.md.")
     config = json.loads(filename.read_text())
@@ -60,7 +60,7 @@ def uploaded_file(name: str) -> Path:
 
 def task_paths(config: dict, task: str) -> dict:
     filename = Path(config["package"]) / "runtime/config.py"
-    spec = importlib.util.spec_from_file_location("forge_sol_upstream_config", filename)
+    spec = importlib.util.spec_from_file_location("extensions_sol_upstream_config", filename)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.load_recipe(task)
@@ -188,19 +188,19 @@ def deliver_video(source: Path, output: Path, frame_count: int, directory: Path)
         raise ValueError("Sol delivery frame count differs from the requested duration")
 
 
-class ForgeSolH3(io.ComfyNode):
+class SolH3(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="ComfyUIExtensions.Forge.SolH3",
-            display_name="Forge Sol-H3-Spark",
-            category="Doujin Forge/Video",
+            node_id="ComfyUIExtensions.SolH3",
+            display_name="Sol-H3-Spark",
+            category="ComfyUIExtensions/Video",
             inputs=[
                 io.Combo.Input("task", options=["t2va", "fl2va", "ref2va"], default="t2va"),
                 io.String.Input("prompt", multiline=True),
                 io.Int.Input("seed", default=42, min=0, max=2**63 - 1),
                 io.Float.Input("duration", default=NATIVE_FRAMES / FPS, min=4, max=NATIVE_FRAMES / FPS),
-                io.String.Input("output_prefix", default="doujin-forge/sol-h3-spark"),
+                io.String.Input("output_prefix", default="sol-h3-spark"),
                 io.String.Input("first_frame", default="", optional=True),
                 io.String.Input("last_frame", default="", optional=True),
                 io.String.Input("reference_images", default="[]", optional=True),
@@ -285,7 +285,7 @@ class ForgeSolH3(io.ComfyNode):
                    SOL_H3_SPARK_QWEN_IMAGE=config["qwen_image"],
                    SOL_H3_SPARK_QWEN_WEIGHTS_ROOT=config["weights_root"],
                    SOL_H3_SPARK_COMFY_ROOT=config["comfy_root"])
-        for key in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "DOUJIN_FORGE_OPENAI_API_KEY", "OPENAI_API_KEY"):
+        for key in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "COMFYUI_EXTENSIONS_OPENAI_API_KEY", "OPENAI_API_KEY"):
             env.pop(key, None)
         # Comfy enables cudaMallocAsync, which cannot run H3 VAE CUDA graphs.
         # Let Sol own allocator settings, including Stage2's expandable segments.

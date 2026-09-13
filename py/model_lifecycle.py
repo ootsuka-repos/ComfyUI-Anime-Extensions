@@ -30,8 +30,8 @@ def clear_extension_models() -> None:
     # Only inspect already imported backends; cleanup must not load optional models.
     cleanups = []
     for name, attribute, lock in (
-        ("nodes.kanomemo.analysis", "_MOBILE_SAM", "_MOBILE_SAM_LOCK"),
-        ("nodes.kanomemo.heatmap", "_MODEL", "_MODEL_LOCK"),
+        ("nodes.image_tools.analysis", "_MOBILE_SAM", "_MOBILE_SAM_LOCK"),
+        ("nodes.image_tools.heatmap", "_MODEL", "_MODEL_LOCK"),
     ):
         module = sys.modules.get(f"{_PACKAGE}.{name}")
         if module is not None:
@@ -74,7 +74,7 @@ class ModelLifecycle(Caching.CacheProvider):
         return False
 
     def on_prompt_end(self, prompt_id: str) -> None:
-        if os.environ.get("COMFYUI_FORGE_AUTO_UNLOAD", "1").strip().lower() in {"0", "false", "no", "off"}:
+        if os.environ.get("COMFYUI_EXTENSIONS_AUTO_UNLOAD", "1").strip().lower() in {"0", "false", "no", "off"}:
             return
         try:
             clear_extension_models()
@@ -82,7 +82,7 @@ class ModelLifecycle(Caching.CacheProvider):
             # The worker consumes this after saving history, outside execution.
             # It unloads managed models, resets node caches and runs GC.
             PromptServer.instance.prompt_queue.set_flag("free_memory", True)
-            _LOG.info("Forge model cleanup finished; ComfyUI cache release queued")
+            _LOG.info("model cleanup finished; ComfyUI cache release queued")
 
 
 model_lifecycle = ModelLifecycle()

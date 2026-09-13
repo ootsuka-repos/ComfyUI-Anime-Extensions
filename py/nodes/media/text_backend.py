@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-DEFAULT_MODEL = os.environ.get("DOUJIN_FORGE_OPENAI_MODEL", "orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF")
+DEFAULT_MODEL = os.environ.get("COMFYUI_EXTENSIONS_OPENAI_MODEL", "orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF")
 
 from .text_types import (
     AgentResultError,
@@ -58,16 +58,16 @@ def _is_structured_generation(log_tag: str) -> bool:
 
 def _thinking_enabled(log_tag: str) -> bool:
     if log_tag.startswith("scenario:proofread:"):
-        return _env_bool("DOUJIN_FORGE_PROOFREAD_ENABLE_THINKING", False)
+        return _env_bool("COMFYUI_EXTENSIONS_PROOFREAD_ENABLE_THINKING", False)
     # Local reasoning models can consume the completion budget as hidden
     # reasoning and return empty message.content for structured JSON requests.
     # Structured product calls therefore require an explicit opt-in; narrative
     # prose can continue to use the global default.
     if _is_structured_generation(log_tag):
-        return _env_bool("DOUJIN_FORGE_STRUCTURED_ENABLE_THINKING", False)
+        return _env_bool("COMFYUI_EXTENSIONS_STRUCTURED_ENABLE_THINKING", False)
     if log_tag.startswith("scenario:"):
-        return _env_bool("DOUJIN_FORGE_SCENARIO_ENABLE_THINKING", False)
-    return _env_bool("DOUJIN_FORGE_OPENAI_ENABLE_THINKING", True)
+        return _env_bool("COMFYUI_EXTENSIONS_SCENARIO_ENABLE_THINKING", False)
+    return _env_bool("COMFYUI_EXTENSIONS_OPENAI_ENABLE_THINKING", True)
 
 
 def _response_format(log_tag: str) -> dict[str, Any] | None:
@@ -172,29 +172,29 @@ def _max_tokens(log_tag: str) -> int | None:
     that is the safe default for comic scenario and storyboard requests.  The
     server's context window remains the actual safety bound.
 
-    ``DOUJIN_FORGE_COMIC_MAX_TOKENS`` can be set to a positive integer for a
+    ``COMFYUI_EXTENSIONS_COMIC_MAX_TOKENS`` can be set to a positive integer for a
     deliberate operator cap, or to ``none``/``null``/``unlimited`` to retain
     the default EOS behaviour.
     """
 
     if log_tag.startswith(("comic_story", "comic_dialogue_")):
-        raw = os.getenv("DOUJIN_FORGE_COMIC_MAX_TOKENS")
+        raw = os.getenv("COMFYUI_EXTENSIONS_COMIC_MAX_TOKENS")
         if raw is None or raw.strip().lower() in {"", "none", "null", "unlimited", "auto"}:
             return None
         try:
             value = int(raw)
         except ValueError as exc:
             raise ValueError(
-                "DOUJIN_FORGE_COMIC_MAX_TOKENS must be positive or 'unlimited'"
+                "COMFYUI_EXTENSIONS_COMIC_MAX_TOKENS must be positive or 'unlimited'"
             ) from exc
         if value <= 0:
-            raise ValueError("DOUJIN_FORGE_COMIC_MAX_TOKENS must be positive")
+            raise ValueError("COMFYUI_EXTENSIONS_COMIC_MAX_TOKENS must be positive")
         return value
 
     name = (
-        "DOUJIN_FORGE_OPENAI_MAX_TOKENS_TITLE"
+        "COMFYUI_EXTENSIONS_OPENAI_MAX_TOKENS_TITLE"
         if "title" in log_tag
-        else "DOUJIN_FORGE_OPENAI_MAX_TOKENS"
+        else "COMFYUI_EXTENSIONS_OPENAI_MAX_TOKENS"
     )
     value = int(os.getenv(name, "4096"))
     if value <= 0:
@@ -203,7 +203,7 @@ def _max_tokens(log_tag: str) -> int | None:
 
 
 def _selected_model(model: str | None = None) -> str:
-    return model or os.getenv("DOUJIN_FORGE_OPENAI_MODEL") or DEFAULT_MODEL
+    return model or os.getenv("COMFYUI_EXTENSIONS_OPENAI_MODEL") or DEFAULT_MODEL
 
 
 def _local_lifecycle_url(base_url: str, action: str) -> str | None:
@@ -233,7 +233,7 @@ def _model_path_and_variant(model: str) -> tuple[str, str | None]:
 
     model_path, separator, variant = model.partition(":")
     if not model_path:
-        raise ValueError("DOUJIN_FORGE_OPENAI_MODEL must not be empty")
+        raise ValueError("COMFYUI_EXTENSIONS_OPENAI_MODEL must not be empty")
     return model_path, variant if separator and variant else None
 
 
@@ -258,16 +258,16 @@ def _model_record(
 
 
 def _auto_load_timeout_seconds() -> float:
-    raw = os.getenv("DOUJIN_FORGE_OPENAI_AUTO_LOAD_TIMEOUT", "600")
+    raw = os.getenv("COMFYUI_EXTENSIONS_OPENAI_AUTO_LOAD_TIMEOUT", "600")
     try:
         timeout = float(raw)
     except ValueError as exc:
         raise ValueError(
-            "DOUJIN_FORGE_OPENAI_AUTO_LOAD_TIMEOUT must be a positive number"
+            "COMFYUI_EXTENSIONS_OPENAI_AUTO_LOAD_TIMEOUT must be a positive number"
         ) from exc
     if timeout <= 0:
         raise ValueError(
-            "DOUJIN_FORGE_OPENAI_AUTO_LOAD_TIMEOUT must be a positive number"
+            "COMFYUI_EXTENSIONS_OPENAI_AUTO_LOAD_TIMEOUT must be a positive number"
         )
     return timeout
 
@@ -286,7 +286,7 @@ def _local_load_options() -> dict[str, object]:
         ("PARALLEL", "n_parallel", 1, 64),
         ("UBATCH", "n_ubatch", 1, 65_536),
     ):
-        name = "DOUJIN_FORGE_OPENAI_" + suffix
+        name = "COMFYUI_EXTENSIONS_OPENAI_" + suffix
         raw = os.getenv(name)
         if raw is None:
             continue
@@ -301,7 +301,7 @@ def _local_load_options() -> dict[str, object]:
         ("SPECULATIVE_TYPE", "speculative_type", {"auto", "off"}),
         ("FLASH_ATTENTION", "flash_attention", {"auto", "on", "off"}),
     ):
-        name = "DOUJIN_FORGE_OPENAI_" + suffix
+        name = "COMFYUI_EXTENSIONS_OPENAI_" + suffix
         value = os.getenv(name)
         if value is None:
             continue
@@ -327,10 +327,10 @@ async def _load_local_model_after_missing_model(
     This is deliberately a recovery path for the exact local ``No model
     loaded`` error, rather than a preflight on every request.  It keeps normal
     calls fast, never manages remote endpoints, and respects an operator
-    opt-out through ``DOUJIN_FORGE_OPENAI_AUTO_LOAD=false``.
+    opt-out through ``COMFYUI_EXTENSIONS_OPENAI_AUTO_LOAD=false``.
     """
 
-    if not _env_bool("DOUJIN_FORGE_OPENAI_AUTO_LOAD", True):
+    if not _env_bool("COMFYUI_EXTENSIONS_OPENAI_AUTO_LOAD", True):
         return False
     load_url = _local_lifecycle_url(base_url, "load")
     if load_url is None:
@@ -400,9 +400,9 @@ def release_local_model_for_gpu(*, model: str | None = None) -> bool:
     runtime is harmless because there is no resident model competing for VRAM.
     """
 
-    if not _env_bool("DOUJIN_FORGE_OPENAI_RELEASE_BEFORE_COMFY", True):
+    if not _env_bool("COMFYUI_EXTENSIONS_OPENAI_RELEASE_BEFORE_COMFY", True):
         return False
-    base_url = os.getenv("DOUJIN_FORGE_OPENAI_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    base_url = os.getenv("COMFYUI_EXTENSIONS_OPENAI_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
     unload_url = _local_lifecycle_url(base_url, "unload")
     if unload_url is None:
         return False
@@ -412,7 +412,7 @@ def release_local_model_for_gpu(*, model: str | None = None) -> bool:
     model_path = _selected_model(model).partition(":")[0]
     headers = {
         "Authorization": "Bearer "
-        + os.getenv("DOUJIN_FORGE_OPENAI_API_KEY", "not-needed"),
+        + os.getenv("COMFYUI_EXTENSIONS_OPENAI_API_KEY", "not-needed"),
     }
     try:
         with httpx.Client(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
@@ -480,7 +480,7 @@ async def run_openai_agent(
     """Submit one completion, recovering once from a locally unloaded model."""
 
     started = time.perf_counter()
-    base_url = os.getenv("DOUJIN_FORGE_OPENAI_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    base_url = os.getenv("COMFYUI_EXTENSIONS_OPENAI_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
     selected_model = _selected_model(model)
     user_content: str | list[dict[str, Any]] = user_prompt
     if image_data_urls:
@@ -495,18 +495,18 @@ async def run_openai_agent(
         ],
         "stream": False,
         "max_tokens": _max_tokens(log_tag),
-        "reasoning_effort": os.getenv("DOUJIN_FORGE_OPENAI_REASONING_EFFORT", "low"),
-        "temperature": float(os.getenv("DOUJIN_FORGE_OPENAI_TEMPERATURE", "0.7")) if temperature is None else temperature,
-        "top_p": float(os.getenv("DOUJIN_FORGE_OPENAI_TOP_P", "0.8")),
-        "top_k": int(os.getenv("DOUJIN_FORGE_OPENAI_TOP_K", "20")),
-        "min_p": float(os.getenv("DOUJIN_FORGE_OPENAI_MIN_P", "0.05")) if min_p is None else min_p,
+        "reasoning_effort": os.getenv("COMFYUI_EXTENSIONS_OPENAI_REASONING_EFFORT", "low"),
+        "temperature": float(os.getenv("COMFYUI_EXTENSIONS_OPENAI_TEMPERATURE", "0.7")) if temperature is None else temperature,
+        "top_p": float(os.getenv("COMFYUI_EXTENSIONS_OPENAI_TOP_P", "0.8")),
+        "top_k": int(os.getenv("COMFYUI_EXTENSIONS_OPENAI_TOP_K", "20")),
+        "min_p": float(os.getenv("COMFYUI_EXTENSIONS_OPENAI_MIN_P", "0.05")) if min_p is None else min_p,
         "repetition_penalty": float(
-            os.getenv("DOUJIN_FORGE_OPENAI_REPETITION_PENALTY", "1.1")
+            os.getenv("COMFYUI_EXTENSIONS_OPENAI_REPETITION_PENALTY", "1.1")
         ) if repetition_penalty is None else repetition_penalty,
         "enable_thinking": _thinking_enabled(log_tag),
-        "enable_tools": _env_bool("DOUJIN_FORGE_OPENAI_ENABLE_TOOLS", True),
+        "enable_tools": _env_bool("COMFYUI_EXTENSIONS_OPENAI_ENABLE_TOOLS", True),
         "enabled_tools": _env_list(
-            "DOUJIN_FORGE_OPENAI_ENABLED_TOOLS",
+            "COMFYUI_EXTENSIONS_OPENAI_ENABLED_TOOLS",
             ("web_search", "python", "terminal"),
         ),
     }
@@ -532,7 +532,7 @@ async def run_openai_agent(
             payload.pop(key, None)
         payload["thinking"] = {"type": "enabled" if _thinking_enabled(log_tag) else "disabled"}
         if image_data_urls:
-            payload["model"] = os.getenv("DOUJIN_FORGE_VISION_MODEL", "deepseek-v4-flash-vision-exp")
+            payload["model"] = os.getenv("COMFYUI_EXTENSIONS_VISION_MODEL", "deepseek-v4-flash-vision-exp")
         if effective_response_format and effective_response_format.get("type") == "json_schema":
             schema = effective_response_format["json_schema"]["schema"]
             payload["messages"][0]["content"] += "\nReturn only JSON matching this schema:\n" + json.dumps(schema)
@@ -540,7 +540,7 @@ async def run_openai_agent(
 
     headers = {
         "Authorization": "Bearer "
-        + os.getenv("DOUJIN_FORGE_OPENAI_API_KEY", "not-needed"),
+        + os.getenv("COMFYUI_EXTENSIONS_OPENAI_API_KEY", "not-needed"),
     }
     try:
         async with httpx.AsyncClient(

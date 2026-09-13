@@ -39,7 +39,7 @@ _MODEL: tuple | None = None
 
 def _to_pil(image: torch.Tensor) -> Image.Image:
     if image.ndim != 4 or image.shape[0] != 1 or image.shape[-1] < 3:
-        raise RuntimeError("Kanomemo heatmap nodes expect exactly one RGB IMAGE")
+        raise RuntimeError("heatmap nodes expect exactly one RGB IMAGE")
     rgb = image[0, ..., :3].detach().to(device="cpu", dtype=torch.float32).clamp(0.0, 1.0)
     return Image.fromarray((rgb.contiguous().numpy() * 255.0).round().astype(np.uint8), "RGB")
 
@@ -66,7 +66,7 @@ def _load_model() -> tuple:
             from timm.data import create_transform, resolve_data_config
         except ImportError as exc:
             raise RuntimeError(
-                "Kanomemo heatmap nodes require pandas, timm, and huggingface_hub"
+                "heatmap nodes require pandas, timm, and huggingface_hub"
             ) from exc
         # ComfyUI invokes a node inside ``torch.inference_mode()``.  Models and
         # tensors constructed in that context become inference tensors, which
@@ -458,15 +458,15 @@ def _parse_tags(serialized: str) -> tuple[str, ...]:
     return values or CENSOR_TAGS
 
 
-class KanomemoWD14ViTScores(io.ComfyNode):
+class WD14ViTScores(io.ComfyNode):
     """Return calibrated WD14-ViT scores from the shared ComfyUI process."""
 
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id=mk_name("Kanomemo", "WD14ViTScores"),
-            display_name="Kanomemo WD14 ViT Scores",
-            category="Kanomemo/analysis",
+            node_id=mk_name("Image", "WD14ViTScores"),
+            display_name="WD14 ViT Scores",
+            category="ComfyUIExtensions/Image/analysis",
             inputs=[io.Image.Input("image"), io.String.Input("tags", default="")],
             outputs=[io.String.Output(display_name="json")],
             is_output_node=True,
@@ -480,15 +480,15 @@ class KanomemoWD14ViTScores(io.ComfyNode):
         return io.NodeOutput(serialized, ui=ui.PreviewText(serialized))
 
 
-class KanomemoHeatmapCensor(io.ComfyNode):
+class HeatmapCensor(io.ComfyNode):
     """Apply the former local WD14-ViT heatmap censor in the shared ComfyUI process."""
 
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id=mk_name("Kanomemo", "HeatmapCensor"),
-            display_name="Kanomemo Heatmap Censor (WD14 ViT)",
-            category="Kanomemo/analysis",
+            node_id=mk_name("Image", "HeatmapCensor"),
+            display_name="Heatmap Censor (WD14 ViT)",
+            category="ComfyUIExtensions/Image/analysis",
             inputs=[
                 io.Image.Input("image"),
                 io.Combo.Input("mode", options=["blur", "pixelate"], default="blur"),

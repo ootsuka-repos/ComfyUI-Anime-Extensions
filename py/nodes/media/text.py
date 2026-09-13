@@ -1,4 +1,4 @@
-"""Run Forge's migrated text/vision backend inside the ComfyUI queue."""
+"""Run the text and vision backend inside the ComfyUI queue."""
 from __future__ import annotations
 
 import asyncio
@@ -10,14 +10,14 @@ from comfy_api.latest import io
 from .text_backend import run_openai_agent
 
 
-class ForgeTextCompletion(io.ComfyNode):
+class TextCompletion(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="ComfyUIExtensions.Forge.TextCompletion",
-            display_name="Forge Text Completion",
-            category="Doujin Forge/Text",
-            inputs=[io.String.Input("request_json", multiline=True, default='{"user_prompt":"","system_prompt":"","log_tag":"forge"}')],
+            node_id="ComfyUIExtensions.TextCompletion",
+            display_name="Text Completion",
+            category="ComfyUIExtensions/Text",
+            inputs=[io.String.Input("request_json", multiline=True, default='{"user_prompt":"","system_prompt":"","log_tag":"text"}')],
             outputs=[io.String.Output("text")],
             is_output_node=True,
             not_idempotent=True,
@@ -29,7 +29,7 @@ class ForgeTextCompletion(io.ComfyNode):
         allowed = {"user_prompt", "system_prompt", "log_tag", "model", "response_format",
                    "image_data_urls", "temperature", "repetition_penalty", "min_p"}
         if not isinstance(request, dict) or set(request) - allowed:
-            raise ValueError("Invalid Forge text request fields")
+            raise ValueError("Invalid text request fields")
         if any(not isinstance(request.get(k), str) for k in ("user_prompt", "system_prompt", "log_tag")):
             raise ValueError("Text request requires user_prompt, system_prompt and log_tag strings")
         # URL, credentials and model lifecycle configuration belong to the host.
@@ -47,13 +47,13 @@ class ForgeTextCompletion(io.ComfyNode):
         return io.NodeOutput(result.text, ui={"text": [result.text]})
 
 
-class ForgeTextModelRelease(io.ComfyNode):
+class TextModelRelease(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
-            node_id="ComfyUIExtensions.Forge.TextModelRelease",
-            display_name="Forge Release Local Text Model",
-            category="Doujin Forge/Text",
+            node_id="ComfyUIExtensions.TextModelRelease",
+            display_name="Release Local Text Model",
+            category="ComfyUIExtensions/Text",
             inputs=[], outputs=[io.Boolean.Output("released")],
             is_output_node=True, not_idempotent=True,
         )

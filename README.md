@@ -1,12 +1,12 @@
 # ComfyUI-Extensions
 
-ComfyUI向けのカスタムノード集です。Irodori-TTSの音声生成、画像を条件にしたCharacter Voice音声生成、Kanomemoの画像解析・切り抜き・ぼかし処理、YuE2の音楽生成、Doujin Forgeのテキスト・動画生成・漫画ページ配置・VRM処理を提供します。
+ComfyUI向けのカスタムノード集です。Irodori-TTSの音声生成、画像を条件にしたCharacter Voice音声生成、Image Toolsの画像解析・切り抜き・ぼかし処理、YuE2の音楽生成、テキスト・動画生成・漫画ページ配置・VRM処理を提供します。
 
 ワークフロー終了時は、成功・失敗ともにモデルと推論キャッシュを自動解放します。
-ComfyUI管理モデルとノード出力キャッシュに加え、Irodori・Kanomemo・imgutilsの独自キャッシュも対象です。
+ComfyUI管理モデルとノード出力キャッシュに加え、Irodori・Image Tools・imgutilsの独自キャッシュも対象です。
 履歴と保存ファイルは保持し、次のワークフローでは必要なモデルを再ロードします。
-`COMFYUI_FORGE_AUTO_UNLOAD=0` をComfyUIの環境変数に設定すると、この動作を無効にできます。
-外部テキストサービスはこの終了時処理の対象外です。`Forge Release Local Text Model`は対応するローカルサービスのモデル解放を別途要求します。この要求を無効にする場合は`DOUJIN_FORGE_OPENAI_RELEASE_BEFORE_COMFY=0`を設定します。
+`COMFYUI_EXTENSIONS_AUTO_UNLOAD=0` をComfyUIの環境変数に設定すると、この動作を無効にできます。
+外部テキストサービスはこの終了時処理の対象外です。`Release Local Text Model`は対応するローカルサービスのモデル解放を別途要求します。この要求を無効にする場合は`COMFYUI_EXTENSIONS_OPENAI_RELEASE_BEFORE_COMFY=0`を設定します。
 `keep_gpu`を指定しても、終了時の自動解放が有効ならワークフローをまたいでモデルは保持されません。
 
 ## 提供するノード
@@ -37,38 +37,38 @@ ComfyUI管理モデルとノード出力キャッシュに加え、Irodori・Kan
 | IrodoriTTS Save Audio | `AUDIO`をWAV・MP3・FLACで保存 |
 | IrodoriTTS Emoji Picker | 演技指定用の絵文字をクリップボードへコピーする補助UI。入出力端子なし |
 
-### Kanomemo
+### Image Tools
 
-カテゴリは`Kanomemo/analysis`と`Kanomemo/portrait`です。
+カテゴリは`ComfyUIExtensions/Image/analysis`と`ComfyUIExtensions/Image/portrait`です。
 
 | ノード名 | 機能・出力 |
 | --- | --- |
-| Kanomemo Image Analysis (imgutils) | `face` / `head` / `censor` / `nudenet` / `wd14` / `ocr`の解析結果をJSON文字列で出力 |
-| Kanomemo WD14 ViT Scores | WD14 ViTのタグスコアをJSON文字列で出力。`tags`はカンマ区切り、空欄なら全タグ |
-| Kanomemo Heatmap Censor (WD14 ViT) | タグのヒートマップに基づくぼかし・ピクセル化。処理済み`IMAGE`とラベルのJSON文字列を出力 |
-| Kanomemo Object Mask (MobileSAM) | 矩形座標`x0, y0, x1, y1`で指定した対象の`MASK`を生成 |
-| Kanomemo Character Segment (imgutils) | ISNetISでキャラクターを切り抜き、`IMAGE`と`foreground_mask`を出力。`scale`は1024固定 |
-| Kanomemo Save RGBA | `IMAGE`と`foreground_mask`を透過PNGとして保存 |
+| Image Analysis (imgutils) | `face` / `head` / `censor` / `nudenet` / `wd14` / `ocr`の解析結果をJSON文字列で出力 |
+| WD14 ViT Scores | WD14 ViTのタグスコアをJSON文字列で出力。`tags`はカンマ区切り、空欄なら全タグ |
+| Heatmap Censor (WD14 ViT) | タグのヒートマップに基づくぼかし・ピクセル化。処理済み`IMAGE`とラベルのJSON文字列を出力 |
+| Object Mask (MobileSAM) | 矩形座標`x0, y0, x1, y1`で指定した対象の`MASK`を生成 |
+| Character Segment (imgutils) | ISNetISでキャラクターを切り抜き、`IMAGE`と`foreground_mask`を出力。`scale`は1024固定 |
+| Save RGBA | `IMAGE`と`foreground_mask`を透過PNGとして保存 |
 
 解析・WD14スコア・ヒートマップ・MobileSAMの入力は1枚のRGB画像です。Character SegmentとSave RGBAは画像バッチに対応します。
 
-### Doujin Forge
+### テキスト・動画・漫画・VRM・モデルローダー
 
-カテゴリは`Doujin Forge/Text`・`Video`・`Comic`・`Avatar`・`model loaders`です。
+カテゴリは`ComfyUIExtensions/Text`・`Video`・`Comic`・`Avatar`・`model loaders`です。
 
 | ノード名 | 機能・出力 |
 | --- | --- |
-| Forge Text Completion | JSONリクエストからOpenAI互換サービスへテキスト・画像条件の生成を要求し、文字列を出力 |
-| Forge Release Local Text Model | 対応するローカルテキストサービスのモデル解放を要求し、解放したかを真偽値で出力 |
-| Forge Sol-H3-Spark | テキスト、先頭・末尾フレーム、参照メディアを条件に動画を生成し、成果物のmanifestを出力 |
-| Forge Comic Page | IMAGEバッチを列数・余白・右読み順に従って1ページへ配置 |
-| Forge VRM Starter | 技術確認用のVRM・ポスター・Blenderシーンを作成 |
-| Forge VRM Dance | input内のVRMと動画から2D姿勢を抽出し、アニメーション動画・編集用Blenderシーンなどを出力 |
-| Forge CheckpointLoaderSimple / UNETLoader / CLIPLoader / VAELoader | 標準ローダーの読み込み処理に、モデル内容のSHA-256によるキャッシュ判定を追加 |
+| Text Completion | JSONリクエストからOpenAI互換サービスへテキスト・画像条件の生成を要求し、文字列を出力 |
+| Release Local Text Model | 対応するローカルテキストサービスのモデル解放を要求し、解放したかを真偽値で出力 |
+| Sol-H3-Spark | テキスト、先頭・末尾フレーム、参照メディアを条件に動画を生成し、成果物のmanifestを出力 |
+| Comic Page | IMAGEバッチを列数・余白・右読み順に従って1ページへ配置 |
+| VRM Starter | 技術確認用のVRM・ポスター・Blenderシーンを作成 |
+| VRM Dance | input内のVRMと動画から2D姿勢を抽出し、アニメーション動画・編集用Blenderシーンなどを出力 |
+| CheckpointLoaderSimple / UNETLoader / CLIPLoader / VAELoader | 標準ローダーの読み込み処理に、モデル内容のSHA-256によるキャッシュ判定を追加 |
 
 モデルローダーは同名・同容量の重みの差し替えも検知します。Irodori、YuE2、Sol-H3-Sparkにもモデル内容を使うキャッシュ判定があります。大きな重みの初回ハッシュ計算には時間がかかる場合があります。
 
-[Forgeのノード・設定・モデル識別API](docs/forge.md)、[Sol-H3-Sparkのセットアップ](docs/sol-h3-spark.md)を参照してください。
+[ノード・設定・モデル識別API](docs/media.md)、[Sol-H3-Sparkのセットアップ](docs/sol-h3-spark.md)を参照してください。
 
 ## 必要環境
 
@@ -109,16 +109,16 @@ git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git .\ComfyUI\cust
 
 | 機能 | 追加で準備するもの |
 | --- | --- |
-| Forge Text Completion | 起動済みのOpenAI互換テキスト・VLMサービス。ComfyUIの環境変数`DOUJIN_FORGE_OPENAI_BASE_URL`（既定`http://127.0.0.1:8888/v1`）、`DOUJIN_FORGE_OPENAI_MODEL`、必要に応じて`DOUJIN_FORGE_OPENAI_API_KEY`を設定 |
+| Text Completion | 起動済みのOpenAI互換テキスト・VLMサービス。ComfyUIの環境変数`COMFYUI_EXTENSIONS_OPENAI_BASE_URL`（既定`http://127.0.0.1:8888/v1`）、`COMFYUI_EXTENSIONS_OPENAI_MODEL`、必要に応じて`COMFYUI_EXTENSIONS_OPENAI_API_KEY`を設定 |
 | YuE2 | 独立Python環境と取得済みモデル・VAE、`ComfyUI/runtimes/YuE2/comfyui.json`。別パスは`COMFYUI_YUE2_CONFIG`で指定。[詳細](docs/yue2.md) |
-| Sol-H3-Spark | 専用ランタイム・モデル・コンテナ、ffmpeg / ffprobe。設定の既定位置は`ComfyUI/runtimes/sol-h3-spark/config.json`、変更は`COMFYUI_FORGE_SOL_CONFIG`で指定。[詳細](docs/sol-h3-spark.md) |
-| VRM | Blenderとその環境へのVRM Add-on導入。動画処理にはffmpegも必要。Blenderは`COMFYUI_FORGE_BLENDER`またはPATHで指定 |
+| Sol-H3-Spark | 専用ランタイム・モデル・コンテナ、ffmpeg / ffprobe。設定の既定位置は`ComfyUI/runtimes/sol-h3-spark/config.json`、変更は`COMFYUI_EXTENSIONS_SOL_CONFIG`で指定。[詳細](docs/sol-h3-spark.md) |
+| VRM | Blenderとその環境へのVRM Add-on導入。動画処理にはffmpegも必要。Blenderは`COMFYUI_EXTENSIONS_BLENDER`またはPATHで指定 |
 
 接続先・認証情報と専用ランタイムのパスはComfyUIホスト側で設定します。
 
 ## モデル配置・自動取得
 
-Doujin Forgeの動画・MVは `Forge Sol-H3-Spark` ノードで実行します。
+動画・MVは `Sol-H3-Spark` ノードで実行します。
 H3の下書きからLTX-2.5の仕上げまでを拡張側で実行し、プラグインからはJSONで呼び出します。
 専用ランタイム・モデル・LTX-2.5アクセス承認の準備は [Sol-H3-Spark](docs/sol-h3-spark.md) を参照してください。
 
@@ -135,13 +135,13 @@ ComfyUI/
    │  ├─ tokenizers/
    │  └─ image_encoders/
    └─ huggingface/
-      └─ hub/                 # Kanomemo用の自動取得先
+      └─ hub/                 # Image Tools用の自動取得先
 ```
 
 - Model Loaderはチェックポイント設定の`latent_dim`からcodecを選択します。32次元は`Aratako/Semantic-DACVAE-Japanese-32dim`、128次元は`facebook/dacvae-watermarked`です。それ以外はエラーになります。
 - 通常TTSのtokenizer・codecは、ローカルに存在しなければ必要に応じて取得されます。通常TTSでは`models/irodori`を保存先に指定しておらず、各ライブラリのキャッシュ設定に従います。
 - Character Voiceのtokenizer・codec・画像エンコーダーは`models/irodori`以下へ取得します。
-- Kanomemoは実行時にHugging Faceのキャッシュを`models/huggingface/hub`へ設定します。WD14 ViTには`SmilingWolf/wd-vit-tagger-v3`、MobileSAMには`dhkim2810/MobileSAM`を使用し、imgutils用のモデルも必要に応じて取得します。このキャッシュ設定は同じComfyUIプロセス内で共有されます。
+- Image Toolsは実行時にHugging Faceのキャッシュを`models/huggingface/hub`へ設定します。WD14 ViTには`SmilingWolf/wd-vit-tagger-v3`、MobileSAMには`dhkim2810/MobileSAM`を使用し、imgutils用のモデルも必要に応じて取得します。このキャッシュ設定は同じComfyUIプロセス内で共有されます。
 
 ## 基本的な使い方
 
@@ -163,16 +163,18 @@ Reference AudioはComfyUIの`input`内の音声・動画を選択でき、音声
 
 ### キャラクター切り抜き・透過PNG保存
 
-`Kanomemo Character Segment (imgutils)`の`image`と`foreground_mask`を、`Kanomemo Save RGBA`の同名入力へ接続します。マスクは1が不透明、0が透明です。保存先の既定プレフィックスは`output/kanomemo/portrait`です。
+`Character Segment (imgutils)`の`image`と`foreground_mask`を、`Save RGBA`の同名入力へ接続します。マスクは1が不透明、0が透明です。保存先の既定プレフィックスは`output/image_tools/portrait`です。
 
 MobileSAMで対象を選ぶ場合は、元画像上のピクセル座標で矩形を指定します。無効な矩形やマスクが得られない場合は、全て0のマスクを返します。
 
-### Forgeの基本操作
+### テキスト・動画・漫画・VRMの基本操作
 
-- テキスト生成: `Forge Text Completion`の`request_json`に`{"user_prompt":"短い台詞を書いてください","system_prompt":"日本語で回答してください","log_tag":"example"}`を入力します。画像条件は`image_data_urls`、構造化出力は`response_format`で指定できます。ノードからのツール実行は無効です。
-- 漫画ページ: 同じサイズのコマ画像をIMAGEバッチにして`Forge Comic Page`へ接続し、出力`page`を画像保存ノードへ接続します。作画・吹き出し・文字入れはこのノードの処理に含まれません。
-- 動画: `Forge Sol-H3-Spark`で`task`を選択します。`t2va`はテキストのみ、`fl2va`は先頭または末尾フレーム、`ref2va`は画像または動画を含む参照入力を使います。ファイルはComfyUIの`input`内に配置します。
-- VRM: `Forge VRM Starter`は技術確認用モデルを作成します。`Forge VRM Dance`には`input`内の`avatar_file`と`source_video`を指定します。結果は`output/doujin-forge/avatar/<id>/`へ保存され、元動画に音声があれば動画へ合成します。
+- テキスト生成: `Text Completion`の`request_json`に`{"user_prompt":"短い台詞を書いてください","system_prompt":"日本語で回答してください","log_tag":"example"}`を入力します。画像条件は`image_data_urls`、構造化出力は`response_format`で指定できます。ノードからのツール実行は無効です。
+- 漫画ページ: 同じサイズのコマ画像をIMAGEバッチにして`Comic Page`へ接続し、出力`page`を画像保存ノードへ接続します。作画・吹き出し・文字入れはこのノードの処理に含まれません。
+- 動画: `Sol-H3-Spark`で`task`を選択します。`t2va`はテキストのみ、`fl2va`は先頭または末尾フレーム、`ref2va`は画像または動画を含む参照入力を使います。ファイルはComfyUIの`input`内に配置します。
+- VRM: `VRM Starter`は技術確認用モデルを作成します。`VRM Dance`には`input`内の`avatar_file`と`source_video`を指定します。結果は`output/avatar/<id>/`へ保存され、元動画に音声があれば動画へ合成します。
+
+表示名・ノードID・カテゴリ・環境変数・APIパスを本拡張の名前に統一しています。旧識別子の互換エイリアスはありません。既存ワークフローは対象ノードを追加し直し、ホスト設定とAPIクライアントも本書の名前へ更新してください。
 
 ## 現在の制約
 

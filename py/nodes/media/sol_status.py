@@ -8,12 +8,12 @@ from server import PromptServer
 from .sol_h3 import runtime_status, model_fingerprint
 
 
-@PromptServer.instance.routes.get("/ComfyUIExtensions/Forge/SolH3/status")
+@PromptServer.instance.routes.get("/ComfyUIExtensions/SolH3/status")
 async def sol_status(_request):
     return web.json_response(await asyncio.to_thread(runtime_status))
 
 
-@PromptServer.instance.routes.post("/ComfyUIExtensions/Forge/sol-model-identity")
+@PromptServer.instance.routes.post("/ComfyUIExtensions/sol-model-identity")
 async def sol_model_identity(request):
     try:
         payload = await request.json()
