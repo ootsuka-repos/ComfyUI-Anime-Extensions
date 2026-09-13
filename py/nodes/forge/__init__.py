@@ -238,5 +238,6 @@ class ForgeComicPage(io.ComfyNode):
 
 from .text import ForgeTextCompletion, ForgeTextModelRelease
 from .sol_h3 import ForgeSolH3
+from . import sol_status  # noqa: F401 — register the read-only runtime route
 
 nodes = [ForgeVRMStarter, ForgeVRMDance, ForgeComicPage, ForgeTextCompletion, ForgeTextModelRelease, ForgeSolH3]

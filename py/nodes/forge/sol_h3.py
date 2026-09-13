@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import math
 import os
 from pathlib import Path
@@ -52,6 +53,29 @@ def uploaded_file(name: str) -> Path:
     if not any(root in path.parents for root in roots) or not path.is_file():
         raise ValueError(f"Use an uploaded ComfyUI input/temp file: {name}")
     return path
+
+
+def runtime_status() -> dict:
+    """Read the pinned recipe and task paths without loading GPU libraries."""
+    result = {"implementation": "Sol-H3-Spark", "revision": SANA_REVISION, "tasks": {},
+              "validation": "Filesystem and frozen recipe only; does not prove GPU inference"}
+    try:
+        config = runtime_config()
+        filename = Path(config["package"]) / "runtime/config.py"
+        spec = importlib.util.spec_from_file_location("forge_sol_upstream_config", filename)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
+        result["error"] = str(error)
+        return result
+    for task in ("t2va", "fl2va", "ref2va"):
+        try:
+            module.load_recipe(task)
+            module.load_paths(config["paths"][task], task=task)
+            result["tasks"][task] = {"prepared": True}
+        except (OSError, ValueError, KeyError) as error:
+            result["tasks"][task] = {"prepared": False, "error": str(error)}
+    return result
 
 
 def reference_list(raw: str, limit: int) -> list[str]:

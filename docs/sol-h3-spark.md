@@ -98,6 +98,12 @@ endpoints are retained. Longer MVs use the plugin's timeline renderer, splitting
 intervals at 120 delivery frames and chaining continuation frames.
 Output history `files` contains `video.mp4` and `sol-report.json`.
 
+`GET /ComfyUIExtensions/Forge/SolH3/status` checks the frozen recipe and task path
+manifests without importing GPU libraries. The plugin checks it before recording
+a submit intent. Missing prerequisites therefore do not queue work or leave an
+ambiguous submission receipt. `prepared` means filesystem preparation, not a
+successful GPU inference test.
+
 Every node invocation includes loading and a full upstream warmup, then one formal
 request. `total_node_seconds` includes this cost; `startup_and_warmup_s` and the
 formal request's `e2e_s` are recorded separately. The published hot benchmark is
