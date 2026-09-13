@@ -131,6 +131,9 @@ dedicated runtime job so that the Qwen container can see them.
 
 - T2VA accepts text only.
 - FL2VA uses first frame, last frame, or both.
+  Match the 1344×768 canvas when possible. Upstream stretches the first supplied
+  keyframe; a portrait input can distort. Ref2VA preserves the aspect ratio of
+  image references and is preferable when an image only specifies appearance.
 - Ref2VA requires at least one image/video, with at most 9 images, 3 video files,
   3 audio files and 12 total references. The upstream media preparer also validates
   soundtrack counts and prompt numbering. The node orders images, videos and audio.
@@ -165,6 +168,13 @@ Failed jobs retain request JSON, `process.log` and worker logs under `jobs/`.
 Successful jobs remove staged media and large transient latent tensors while
 retaining receipts and logs. The model cache is shared and preserved.
 
+After verifying the replacement, legacy Comfy-format H3 pruned/fused checkpoints,
+their old VAE/encoder/LoRA and VDN weights can be removed when no other workflow uses
+them. Preserve every checkpoint in the Sol manifests, including native H3 partitions.
+Do not delete the whole `Comfy-Org/MiniMax-H3` HF cache: Sol's NVFP4 AWQ encoder
+shares that repository with the obsolete Comfy-format weights. Removing a snapshot
+symlink alone does not reclaim its blob's disk space.
+
 ## Verification status
 
 The node registration, workflow bindings and production call paths must be checked
@@ -173,6 +183,16 @@ A Sol pass requires the real H3 and LTX workers, full warmup, a successful forma
 request and decoded 121-frame native video with audio. Retain failures separately
 from subsequent successful retries. In particular, previous native H3 inference
 receipts are not Sol-H3-Spark validation.
+
+On 2026-09-13–14 (JST), the plugin's T2VA, FL2VA, Ref2VA and MV production commands
+all passed on this GB10 host. Native outputs decoded to 121 frames at 1344×768/24 fps
+with finite, non-silent audio. Formal generation took 62.8–72.8 seconds; complete
+commands including model loading, full warmup and delivery took 459.9–552.6 seconds.
+The three video modes delivered 120 frames; the MV delivered 96 frames with its supplied
+music. Frame review found subtitle-like text in T2VA and changes to reference details
+in conditioned tasks. Audio was checked numerically, without subjective listening.
+Detailed receipts are retained under
+`~/.local/share/doujin-forge/verification/20260913-all-models/REPORT.md`.
 
 Code is MIT under this repository's license. Upstream code and downloaded weights
 retain their own terms; see the pinned package's `THIRD_PARTY_NOTICES.md`.
