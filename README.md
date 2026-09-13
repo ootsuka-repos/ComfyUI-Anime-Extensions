@@ -87,6 +87,10 @@ git clone https://github.com/ootsuka-repos/ComfyUI-Extensions.git .\ComfyUI\cust
 
 ## モデル配置・自動取得
 
+Doujin Forgeの動画・MVは `Forge Sol-H3-Spark` ノードで実行します。
+H3の下書きからLTX-2.5の仕上げまでを拡張側で実行し、プラグインからはJSONで呼び出します。
+専用ランタイム・モデル・LTX-2.5アクセス承認の準備は [Sol-H3-Spark](docs/sol-h3-spark.md) を参照してください。
+
 Irodori-TTSまたはCharacter Voiceのチェックポイントは、ComfyUIの`models/checkpoints`以下へ配置します。モデル本体はこのリポジトリに含まれません。
 
 ```text

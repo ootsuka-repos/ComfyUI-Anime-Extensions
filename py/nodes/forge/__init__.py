@@ -237,5 +237,6 @@ class ForgeComicPage(io.ComfyNode):
 
 
 from .text import ForgeTextCompletion, ForgeTextModelRelease
+from .sol_h3 import ForgeSolH3
 
-nodes = [ForgeVRMStarter, ForgeVRMDance, ForgeComicPage, ForgeTextCompletion, ForgeTextModelRelease]
+nodes = [ForgeVRMStarter, ForgeVRMDance, ForgeComicPage, ForgeTextCompletion, ForgeTextModelRelease, ForgeSolH3]

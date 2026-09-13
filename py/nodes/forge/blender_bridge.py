@@ -776,6 +776,9 @@ def _write_retarget(args: argparse.Namespace) -> None:
         if vrma_result != {"FINISHED"}:
             raise RuntimeError(f"VRMA export failed: {vrma_result}")
 
+    # Blender 5.2 separates image and video formats by media type.
+    if hasattr(scene.render.image_settings, "media_type"):
+        scene.render.image_settings.media_type = "VIDEO"
     scene.render.image_settings.file_format = "FFMPEG"
     scene.render.ffmpeg.format = "MPEG4"
     scene.render.ffmpeg.codec = "H264"

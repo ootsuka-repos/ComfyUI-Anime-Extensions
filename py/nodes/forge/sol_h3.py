@@ -1,0 +1,226 @@
+"""Sol-H3-Spark execution owned by ComfyUI, using the pinned upstream recipe."""
+from __future__ import annotations
+
+import json
+import math
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import uuid
+
+import folder_paths
+from comfy import model_management
+from comfy_api.latest import io
+
+SANA_REVISION = "8e0db4fa562d727ea28b8d63015c196db7d97cae"
+NATIVE_FRAMES, FPS = 121, 24
+
+
+def runtime_config() -> dict:
+    default = Path(folder_paths.base_path) / "runtimes/sol-h3-spark/config.json"
+    filename = Path(os.environ.get("COMFYUI_FORGE_SOL_CONFIG", str(default))).expanduser()
+    if not filename.is_file():
+        raise RuntimeError(f"Sol-H3-Spark runtime is not prepared: {filename}. See docs/sol-h3-spark.md.")
+    config = json.loads(filename.read_text())
+    if config.get("schema") != 1:
+        raise ValueError("Unsupported Sol-H3-Spark host configuration")
+    package = Path(config["package"]).expanduser().resolve(strict=True)
+    revision = subprocess.check_output(
+        ["git", "-C", str(package), "rev-parse", "HEAD"], text=True, timeout=10
+    ).strip()
+    if revision != SANA_REVISION:
+        raise ValueError(f"Sol-H3-Spark requires Sana revision {SANA_REVISION}; found {revision}")
+    config["package"] = str(package)
+    root = Path(config["runtime_root"]).expanduser().resolve(strict=True)
+    if not root.is_dir() or root == Path("/"):
+        raise ValueError("Use a dedicated Sol-H3-Spark runtime directory")
+    config["runtime_root"] = str(root)
+    return config
+
+
+def uploaded_file(name: str) -> Path:
+    """Accept Comfy input/temp annotations without exposing arbitrary host paths."""
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Reference filenames must be nonempty strings")
+    path = Path(folder_paths.get_annotated_filepath(name)).resolve()
+    roots = [Path(folder_paths.get_input_directory()).resolve(),
+             Path(folder_paths.get_temp_directory()).resolve()]
+    if not any(root in path.parents for root in roots) or not path.is_file():
+        raise ValueError(f"Use an uploaded ComfyUI input/temp file: {name}")
+    return path
+
+
+def reference_list(raw: str, limit: int) -> list[str]:
+    values = json.loads(raw)
+    if (not isinstance(values, list) or len(values) > limit
+            or any(not isinstance(value, str) or not value for value in values)):
+        raise ValueError(f"References must be a JSON list of at most {limit} uploaded filenames")
+    return values
+
+
+def run_owned(command: list[str], *, directory: Path, environment: dict | None = None) -> None:
+    """Upstream infer handles SIGTERM and closes its three owned worker groups."""
+    with (directory / "process.log").open("a") as log:
+        process = subprocess.Popen(command, cwd=directory, env=environment,
+                                   stdout=log, stderr=subprocess.STDOUT,
+                                   start_new_session=True)
+        try:
+            while process.poll() is None:
+                model_management.throw_exception_if_processing_interrupted()
+                time.sleep(0.2)
+            if process.returncode:
+                raise RuntimeError(f"Sol-H3-Spark process failed ({process.returncode}); see {directory / 'process.log'}")
+        finally:
+            if process.poll() is None:
+                process.send_signal(signal.SIGTERM)
+                # Pipeline.close may spend 40 seconds per owned worker. Do not
+                # kill the parent early and strand CUDA workers or Qwen Docker.
+                process.wait()
+
+
+def video_info(path: Path) -> dict:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-count_frames", "-show_streams", "-of", "json", str(path)],
+        check=True, capture_output=True, text=True, timeout=120,
+    )
+    streams = json.loads(result.stdout)["streams"]
+    video = next(item for item in streams if item.get("codec_type") == "video")
+    if not any(item.get("codec_type") == "audio" for item in streams):
+        raise ValueError("Sol-H3-Spark did not produce its required audio track")
+    if (video["width"], video["height"], video["avg_frame_rate"]) != (1344, 768, "24/1"):
+        raise ValueError("Sol-H3-Spark output does not match the frozen 1344x768/24fps recipe")
+    return video
+
+
+class ForgeSolH3(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="ComfyUIExtensions.Forge.SolH3",
+            display_name="Forge Sol-H3-Spark",
+            category="Doujin Forge/Video",
+            inputs=[
+                io.Combo.Input("task", options=["t2va", "fl2va", "ref2va"], default="t2va"),
+                io.String.Input("prompt", multiline=True),
+                io.Int.Input("seed", default=42, min=0, max=2**63 - 1),
+                io.Float.Input("duration", default=NATIVE_FRAMES / FPS, min=4, max=NATIVE_FRAMES / FPS),
+                io.String.Input("output_prefix", default="doujin-forge/sol-h3-spark"),
+                io.String.Input("first_frame", default="", optional=True),
+                io.String.Input("last_frame", default="", optional=True),
+                io.String.Input("reference_images", default="[]", optional=True),
+                io.String.Input("reference_videos", default="[]", optional=True),
+                io.String.Input("reference_audios", default="[]", optional=True),
+            ],
+            outputs=[io.String.Output("manifest")],
+            is_output_node=True,
+        )
+
+    @classmethod
+    def execute(cls, task, prompt, seed, duration, output_prefix,
+                first_frame="", last_frame="", reference_images="[]",
+                reference_videos="[]", reference_audios="[]"):
+        if (task not in {"t2va", "fl2va", "ref2va"} or not prompt.strip()
+                or type(seed) is not int or not 0 <= seed < 2**63):
+            raise ValueError("Provide a Sol task, nonempty prompt and nonnegative 63-bit seed")
+        if not math.isfinite(duration) or not 4 <= duration <= NATIVE_FRAMES / FPS:
+            raise ValueError("Sol generates 121 frames at 24fps; clip duration must be 4–5.041666666666667 seconds. Use MV segments for longer works.")
+        references = [(kind, name) for kind, raw, limit in (
+            ("image", reference_images, 9), ("video", reference_videos, 3),
+            ("audio", reference_audios, 3),
+        ) for name in reference_list(raw, limit)]
+        if len(references) > 12:
+            raise ValueError("Sol Ref2VA allows at most 12 reference inputs")
+        frames = {key: value for key, value in (("first_frame", first_frame), ("last_frame", last_frame)) if value}
+        if task == "t2va" and (references or frames):
+            raise ValueError("T2VA accepts only text; select FL2VA or Ref2VA for media inputs")
+        if task == "fl2va" and (not frames or references):
+            raise ValueError("FL2VA requires first/last frame inputs without reference lists")
+        if task == "ref2va" and (frames or not any(kind in {"image", "video"} for kind, _ in references)):
+            raise ValueError("Ref2VA requires an image or video reference; use FL2VA for first/last frames")
+        if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+            raise RuntimeError("Install ffmpeg and ffprobe on the ComfyUI host")
+        config = runtime_config()
+        paths = Path(config["paths"][task]).expanduser()
+        if not paths.is_file():
+            raise RuntimeError(f"Sol {task} runtime preparation is incomplete: {paths}. Model files and the generic prompt cache must be prepared before inference.")
+        output_root = Path(folder_paths.get_output_directory()).resolve()
+        prefix = (output_root / output_prefix).resolve()
+        if prefix == output_root or output_root not in prefix.parents:
+            raise ValueError("output_prefix must be a path below ComfyUI/output")
+        job_id = uuid.uuid4().hex
+        job = Path(config["runtime_root"]) / "jobs" / job_id
+        job.mkdir(parents=True)
+        inputs = job / "inputs"
+        inputs.mkdir()
+        case = {"case_id": "generation", "task": task, "prompt": prompt, "seed": seed}
+
+        def stage(name):
+            source = uploaded_file(name)
+            target = inputs / (uuid.uuid4().hex + source.suffix.lower())
+            shutil.copyfile(source, target)
+            return str(target)
+
+        case.update({key: stage(value) for key, value in frames.items()})
+        if references:
+            case["references"] = [{"type": kind, "path": stage(name)} for kind, name in references]
+        request = job / "request.jsonl"
+        request.write_text(json.dumps(case, ensure_ascii=False) + "\n")
+        env = os.environ.copy()
+        env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONUNBUFFERED="1",
+                   SOL_H3_SPARK_RUNTIME_ROOT=config["runtime_root"],
+                   SOL_H3_SPARK_QWEN_IMAGE=config["qwen_image"],
+                   SOL_H3_SPARK_QWEN_WEIGHTS_ROOT=config["weights_root"],
+                   SOL_H3_SPARK_COMFY_ROOT=config["comfy_root"])
+        for key in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "DOUJIN_FORGE_OPENAI_API_KEY", "OPENAI_API_KEY"):
+            env.pop(key, None)
+        package = Path(config["package"])
+        # Sol owns isolated CUDA workers; release Comfy's resident model weights
+        # before starting them. No shared LLM service is stopped by this node.
+        model_management.unload_all_models()
+        model_management.soft_empty_cache()
+        started = time.monotonic()
+        run_owned([sys.executable, "-B", str(package / "infer.py"), "--paths", str(paths),
+                   "--prompts", str(request), "--task", task, "--output-dir", str(job / "run")],
+                  directory=job, environment=env)
+        report = json.loads((job / "run/results.json").read_text())
+        if report.get("status") != "PASS" or len(report.get("requests", [])) != 1:
+            raise RuntimeError(f"Sol returned an incomplete report: {job / 'run/results.json'}")
+        source = Path(report["requests"][0]["output"]).resolve(strict=True)
+        if job not in source.parents or int(video_info(source)["nb_read_frames"]) != NATIVE_FRAMES:
+            raise ValueError("Sol returned an invalid native output")
+        directory = prefix.parent / (prefix.name + "-" + job_id)
+        directory.mkdir(parents=True)
+        output = directory / "video.mp4"
+        frame_count = min(NATIVE_FRAMES, math.ceil(duration * FPS))
+        if frame_count == NATIVE_FRAMES:
+            shutil.copyfile(source, output)
+        else:
+            indices = [round(i * (NATIVE_FRAMES - 1) / (frame_count - 1)) for i in range(frame_count)]
+            select = "+".join(f"eq(n\\,{index})" for index in indices)
+            run_owned(["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(source),
+                       "-vf", f"select={select},setpts=N/({FPS}*TB)",
+                       "-af", f"atempo={NATIVE_FRAMES / frame_count},apad,atrim=end={frame_count / FPS},asetpts=PTS-STARTPTS",
+                       "-r", str(FPS), "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+                       "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(output)],
+                      directory=job)
+        if int(video_info(output)["nb_read_frames"]) != frame_count:
+            raise ValueError("Sol delivery frame count differs from the requested duration")
+        report.update(upstream_revision=SANA_REVISION, total_node_seconds=time.monotonic() - started,
+                      delivered_frames=frame_count, delivered_duration=frame_count / FPS,
+                      native_frames=NATIVE_FRAMES, worker_lifetime="one node invocation; full warmup included in node time")
+        (directory / "sol-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        # Large latent captures and staged media are transient. Receipts, worker
+        # logs and model caches remain under the runtime for diagnosis/reuse.
+        shutil.rmtree(inputs)
+        for capture in (job / "run").rglob("*.pt"):
+            capture.unlink()
+        relative = str(directory.relative_to(output_root))
+        files = [{"filename": name, "subfolder": relative, "type": "output"}
+                 for name in ("video.mp4", "sol-report.json")]
+        manifest = json.dumps({"model": "Sol-H3-Spark", "task": task, "files": files,
+                               "frames": frame_count, "fps": FPS}, ensure_ascii=False)
+        return io.NodeOutput(manifest, ui={"text": [manifest], "files": files})
