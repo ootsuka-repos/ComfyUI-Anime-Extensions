@@ -39,12 +39,20 @@ def clear_extension_models() -> None:
     for name in ("irodori_tts", "irodori_character_voice"):
         module = sys.modules.get(f"{_PACKAGE}.modules.{name}.inference_runtime")
         if module is not None:
-            cleanups.append((name, module.clear_cached_runtime, ()))
+            cleanup = getattr(module, "clear_cached_runtime", None)
+            if callable(cleanup):
+                cleanups.append((name, cleanup, ()))
+            else:
+                _LOG.warning("No runtime cleanup hook available for %s", name)
     for name, functions in _IMGUTILS_CACHES.items():
         module = sys.modules.get(name)
         if module is not None:
             for function in functions:
-                cleanups.append((f"{name}.{function}", getattr(module, function).cache_clear, ()))
+                cleanup = getattr(getattr(module, function, None), "cache_clear", None)
+                if callable(cleanup):
+                    cleanups.append((f"{name}.{function}", cleanup, ()))
+                else:
+                    _LOG.warning("No cache cleanup hook available for %s.%s", name, function)
     for name, cleanup, arguments in cleanups:
         try:
             cleanup(*arguments)

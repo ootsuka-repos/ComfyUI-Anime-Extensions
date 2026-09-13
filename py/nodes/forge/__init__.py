@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import os
@@ -123,6 +124,8 @@ def avatar(mode: str, name: str, source_video: str = "", avatar_file: str = ""):
                 "copy",
                 "-c:a",
                 "aac",
+                "-af",
+                "apad",
                 "-shortest",
                 str(directory / "dance.mp4"),
             ],
@@ -186,6 +189,16 @@ class ForgeVRMDance(io.ComfyNode):
             outputs=[io.String.Output("manifest")],
             is_output_node=True,
         )
+
+    @classmethod
+    async def fingerprint_inputs(cls, source_video, avatar_file, **kwargs):
+        def calculate():
+            from ...model_identity import _file_identity
+
+            return tuple(_file_identity(input_file(name))["sha256"]
+                         for name in (source_video, avatar_file))
+
+        return await asyncio.to_thread(calculate)
 
     @classmethod
     def execute(cls, name, source_video, avatar_file):
