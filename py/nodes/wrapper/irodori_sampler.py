@@ -45,6 +45,16 @@ class IrodoriTTSSampler(io.ComfyNode):
                     multiline=True,
                     tooltip="生成する読み上げテキストです。",
                 ),
+                io.String.Input(
+                    "texts",
+                    multiline=True,
+                    default="",
+                    optional=True,
+                    tooltip=(
+                        "複数テキストを1回のforwardでまとめて生成します。改行区切りで1行1テキスト。"
+                        "指定すると batch_size より優先され、バッチ数は行数になります（text は無視）。"
+                    ),
+                ),
                 io.Int.Input(
                     "seed",
                     default=0,
@@ -154,6 +164,7 @@ class IrodoriTTSSampler(io.ComfyNode):
         context_kv_cache: bool,
         max_text_len: int,
         trim_tail: bool,
+        texts: str | None = None,
         lora_stack: list | None = None,
         ref_config: dict | None = None,
         voice_design_config: dict | None = None,
@@ -208,15 +219,23 @@ class IrodoriTTSSampler(io.ComfyNode):
         if cfg_scale_override is None and str(cfg_guidance_mode).strip().lower() == "joint":
             cfg_scale_override = cfg_scale_text
 
+        text_list: list[str] | None = None
+        if texts is not None and str(texts).strip():
+            text_list = [line.strip() for line in str(texts).splitlines() if line.strip()]
+            if not text_list:
+                text_list = None
+        candidate_count = len(text_list) if text_list else int(batch_size)
+
         req = SamplingRequest(
             text=str(text),
+            texts=text_list,
             caption=voice_design_config.get("caption", None),
             ref_wav=ref_config.get("ref_wav", None),
             ref_latent=ref_config.get("ref_latent", None),
             no_ref=bool(ref_config.get("no_ref", ref_config.get("ref_wav", None) is None)),
             ref_normalize_db=ref_config.get("ref_normalize_db", None),
             ref_ensure_max=bool(ref_config.get("ref_ensure_max", False)),
-            num_candidates=int(batch_size),
+            num_candidates=candidate_count,
             decode_mode=str(decode_mode),
             # Text still determines the base duration. The scale only adjusts
             # the duration predictor's result; legacy manual-duration kwargs

@@ -184,6 +184,41 @@ class IrodoriDurationScaleTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises((TypeError, ValueError)):
                 _execute(module, duration_scale=value)
 
+    def test_schema_exposes_optional_batch_texts(self) -> None:
+        module, _runtime = _load_sampler()
+
+        schema = module.IrodoriTTSSampler.define_schema()
+        inputs = {input_spec.name: input_spec for input_spec in schema.inputs}
+        texts = inputs["texts"]
+
+        self.assertTrue(texts.optional)
+        self.assertTrue(texts.multiline)
+        self.assertEqual(texts.default, "")
+
+    def test_sampler_splits_texts_into_a_batch(self) -> None:
+        module, runtime = _load_sampler()
+
+        _execute(module, texts="一行目\n二行目\n三行目")
+
+        self.assertEqual(runtime.request.texts, ["一行目", "二行目", "三行目"])
+        self.assertEqual(runtime.request.num_candidates, 3)
+
+    def test_sampler_ignores_blank_texts(self) -> None:
+        module, runtime = _load_sampler()
+
+        _execute(module, texts="  \n \n", batch_size=2)
+
+        self.assertIsNone(runtime.request.texts)
+        self.assertEqual(runtime.request.num_candidates, 2)
+
+    def test_sampler_keeps_batch_size_without_texts(self) -> None:
+        module, runtime = _load_sampler()
+
+        _execute(module, batch_size=2)
+
+        self.assertIsNone(runtime.request.texts)
+        self.assertEqual(runtime.request.num_candidates, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

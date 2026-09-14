@@ -201,7 +201,8 @@ class RuntimeKey:
 
 @dataclass
 class SamplingRequest:
-    text: str
+    text: str = ""
+    texts: list[str] | None = None
     caption: str | None = None
     ref_wav: str | None = None
     ref_wavs: list[str] | None = None
@@ -1092,9 +1093,24 @@ class InferenceRuntime:
             )
 
         raw_text = str(req.text)
-        normalized_text = normalize_text(raw_text).strip()
-        if normalized_text == "":
+        normalized_text = normalize_text(raw_text).strip() if raw_text else ""
+        # `texts` を与えると、バッチの各項目を別々のテキストで生成する。
+        # 未指定なら従来どおり同じテキストを num_candidates 分複製する。
+        batch_texts: list[str] | None = None
+        if req.texts:
+            batch_texts = [normalize_text(str(item)).strip() for item in req.texts]
+            if any(item == "" for item in batch_texts):
+                raise ValueError("texts contains an entry that became empty.")
+            if len(batch_texts) != num_candidates:
+                raise ValueError(
+                    f"texts must contain num_candidates ({num_candidates}) entries, "
+                    f"got {len(batch_texts)}"
+                )
+        elif normalized_text == "":
             raise ValueError("text became empty after normalization.")
+        effective_texts = (
+            batch_texts if batch_texts is not None else [normalized_text] * num_candidates
+        )
 
         text_max_len = (
             self.default_text_max_len if req.max_text_len is None else int(req.max_text_len)
@@ -1196,7 +1212,7 @@ class InferenceRuntime:
         ):
             t0 = _measure_start(self.model_device)
             text_ids, text_mask = self.tokenizer.batch_encode(
-                [normalized_text] * num_candidates,
+                effective_texts,
                 max_length=text_max_len,
             )
             stage_sec = _measure_end(self.model_device, t0)
@@ -1257,6 +1273,7 @@ class InferenceRuntime:
                     _log(duration_msg)
                 target_samples = max(1, int(clamped_seconds * self.codec.sample_rate))
                 latent_steps = math.ceil(target_samples / hop_length)
+                per_item_target_samples = None
                 duration_msg = f"info: using manual duration {clamped_seconds:.3f}s."
                 messages.append(duration_msg)
                 _log(duration_msg)
@@ -1270,7 +1287,7 @@ class InferenceRuntime:
                 elif self.model_cfg.use_speaker_condition_resolved and ref_mask is not None:
                     has_speaker_duration = ref_mask.any(dim=1)
                 duration_features = build_duration_features(
-                    [normalized_text] * num_candidates,
+                    effective_texts,
                     token_counts=text_mask.sum(dim=1),
                     max_text_len=text_max_len,
                     has_speaker=has_speaker_duration,
@@ -1311,13 +1328,25 @@ class InferenceRuntime:
                     if self.model_cfg.use_caption_condition
                     else None,
                 )
-                pred_frames = torch.expm1(pred_log_frames).float().mean().item()
-                scaled_frames = pred_frames * duration_scale
+                # 尺は項目ごとに予測する。別テキストをバッチにすると長さが
+                # 揃わないため、モデルには最大長で走らせ、各項目を自分の尺へ
+                # 切り詰める。以前は mean() でバッチ平均を1つに潰していた。
                 min_frames = max(1, math.ceil(min_seconds * self.codec.sample_rate / hop_length))
                 max_frames = max(1, math.floor(max_seconds * self.codec.sample_rate / hop_length))
-                latent_steps = int(round(scaled_frames))
-                latent_steps = max(min_frames, min(max_frames, latent_steps))
+                predicted_frames = torch.expm1(pred_log_frames).float().reshape(-1)
+                if predicted_frames.numel() != num_candidates:
+                    predicted_frames = predicted_frames.mean().expand(num_candidates)
+                predicted_frames = predicted_frames * duration_scale
+                per_item_latent_steps = torch.clamp(
+                    torch.round(predicted_frames), min=min_frames, max=max_frames
+                ).to(torch.int64)
+                latent_steps = max(min_frames, int(per_item_latent_steps.max().item()))
                 target_samples = int(latent_steps * hop_length)
+                per_item_target_samples = [
+                    int(per_item_latent_steps[index].item()) * hop_length
+                    for index in range(num_candidates)
+                ]
+                pred_frames = float(predicted_frames.mean().item())
                 stage_sec = _measure_end(self.model_device, t0)
                 stage_timings.append(("predict_duration", stage_sec))
                 msg = (
@@ -1332,6 +1361,7 @@ class InferenceRuntime:
                 fallback_seconds = 30.0
                 target_samples = int(fallback_seconds * self.codec.sample_rate)
                 latent_steps = math.ceil(target_samples / hop_length)
+                per_item_target_samples = None
                 msg = "info: checkpoint has no duration predictor; falling back to 30.000s."
                 messages.append(msg)
                 _log(msg)
@@ -1400,7 +1430,11 @@ class InferenceRuntime:
                 audio_batch = self.codec.decode_latent(z).cpu()
                 for i in range(num_candidates):
                     audio_i = audio_batch[i]
-                    max_samples = target_samples
+                    max_samples = (
+                        per_item_target_samples[i]
+                        if per_item_target_samples is not None
+                        else target_samples
+                    )
                     if bool(req.trim_tail):
                         flattening_point = find_flattening_point(
                             z[i],
@@ -1417,7 +1451,11 @@ class InferenceRuntime:
             else:
                 for i in range(num_candidates):
                     audio_i = self.codec.decode_latent(z[i : i + 1]).cpu()[0]
-                    max_samples = target_samples
+                    max_samples = (
+                        per_item_target_samples[i]
+                        if per_item_target_samples is not None
+                        else target_samples
+                    )
                     if bool(req.trim_tail):
                         flattening_point = find_flattening_point(
                             z[i],
