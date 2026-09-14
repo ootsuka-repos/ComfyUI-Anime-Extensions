@@ -1475,11 +1475,18 @@ class InferenceRuntime:
 
             if self.watermarker.ready:
                 t0 = _measure_start(self.codec_device)
+                kept_samples = [int(audio.shape[-1]) for audio in trimmed_audios]
                 trimmed_audios = self.watermarker.encode_batch(
                     trimmed_audios,
                     sample_rate=int(self.codec.sample_rate),
                 )
-                stage_sec = _measure_end(self.codec_device, t0)
+                # encode_batch pads every item to the longest track, which would
+                # undo the per-item duration. Restore each length.
+                trimmed_audios = [
+                    audio[:, : kept_samples[index]]
+                    for index, audio in enumerate(trimmed_audios)
+                ]
+                stage_sec = _measure_end(self.model_device, t0, self.codec_device)
                 stage_timings.append(("silentcipher_watermark", stage_sec))
                 _log(f"[runtime] silentcipher_watermark: {stage_sec * 1000.0:.1f} ms")
             else:
