@@ -53,6 +53,17 @@ class ModelConfig:
     duration_speaker_fusion: str = "adarn_zero"
     duration_caption_fusion: str = "adarn_zero"
     duration_caption_pooling: str = "masked_mean"
+    # Flow parameterization the checkpoint was trained with. The sampler only
+    # implements rectified-flow velocity, so any other value is rejected rather
+    # than silently mis-sampled.
+    flow_parameterization: str = "rf_velocity"
+
+    def __post_init__(self) -> None:
+        if self.flow_parameterization != "rf_velocity":
+            raise ValueError(
+                "Unsupported flow_parameterization="
+                f"{self.flow_parameterization!r}; only 'rf_velocity' is implemented."
+            )
 
     @property
     def patched_latent_dim(self) -> int:

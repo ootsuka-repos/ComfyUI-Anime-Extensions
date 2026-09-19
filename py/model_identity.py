@@ -93,8 +93,15 @@ def _resolve_model(category: str, name: str) -> Path:
     return Path(path)
 
 
+SIDECAR_CODEC_RELPATH = "codec/weights.pth"
+
+
 def _codec_repo(checkpoint: Path) -> str:
-    # Match Irodori's config_json latent_dim routing, without importing torch.
+    # Match Irodori's codec routing (sidecar first, then config_json latent_dim),
+    # without importing torch.
+    sidecar = checkpoint.parent / SIDECAR_CODEC_RELPATH
+    if sidecar.is_file():
+        return str(sidecar)
     if checkpoint.suffix.lower() != ".safetensors":
         raise ValueError("Irodori codec identity requires a safetensors checkpoint")
     with checkpoint.open("rb") as source:
@@ -116,6 +123,9 @@ def _codec_repo(checkpoint: Path) -> str:
 
 
 def _cached_codec(repo: str) -> Path:
+    # A sidecar codec is already a path on disk; DACVAECodec.load reads it directly.
+    if Path(repo).is_file():
+        return Path(repo)
     # DACVAECodec.load without local_dir resolves this exact default file.
     from huggingface_hub import try_to_load_from_cache
     path = try_to_load_from_cache(repo, "weights.pth")

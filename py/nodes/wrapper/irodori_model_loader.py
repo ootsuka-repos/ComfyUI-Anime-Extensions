@@ -8,7 +8,7 @@ from .irodori_common import (
     IO_MODEL_CONFIG,
     available_devices,
     available_precisions,
-    codec_repo_for_latent_dim,
+    codec_source_for_checkpoint,
     peek_latent_dim_from_checkpoint,
     resolve_checkpoint_path,
 )
@@ -97,7 +97,9 @@ class IrodoriModelLoader(io.ComfyNode):
             from ...model_identity import irodori_runtime_identity
 
             checkpoint = resolve_checkpoint_path(kwargs["model"])
-            repo = codec_repo_for_latent_dim(peek_latent_dim_from_checkpoint(checkpoint))
+            repo = codec_source_for_checkpoint(
+                checkpoint, peek_latent_dim_from_checkpoint(checkpoint)
+            )
             return irodori_runtime_identity(checkpoint, repo, allow_missing_codec=True)
 
         return await asyncio.to_thread(calculate)
@@ -131,7 +133,7 @@ class IrodoriModelLoader(io.ComfyNode):
             "checkpoint": checkpoint_path,
             "latent_dim": latent_dim,
             "model_device": model_device,
-            "codec_repo": codec_repo_for_latent_dim(latent_dim),
+            "codec_repo": codec_source_for_checkpoint(checkpoint_path, latent_dim),
             "model_precision": model_precision,
             "codec_device": codec_device,
             "codec_precision": codec_precision,

@@ -121,7 +121,9 @@ ComfyUI/
 └─ models/
    ├─ checkpoints/
    │  └─ irodori_tts/
-   │     └─ model.safetensors
+   │     ├─ model.safetensors
+   │     └─ codec/
+   │        └─ weights.pth    # optional: codec fine-tuned with this checkpoint
    ├─ irodori/                 # Character Voice downloads
    │  ├─ codecs/
    │  ├─ tokenizers/
@@ -131,6 +133,7 @@ ComfyUI/
 ```
 
 - Model Loader selects the codec from the checkpoint's `latent_dim`: 32 uses `Aratako/Semantic-DACVAE-Japanese-32dim`, and 128 uses `facebook/dacvae-watermarked`. Other values raise an error.
+- A `codec/weights.pth` sitting next to the checkpoint overrides that routing and is loaded instead. A codec fine-tuned alongside a checkpoint produces a latent space that the public codec cannot decode even at the same `latent_dim`, so ship the pair together.
 - Standard TTS downloads its tokenizer and codec as needed. It follows each library's cache settings rather than explicitly using `models/irodori`.
 - Character Voice downloads tokenizers, codecs, and image encoders under `models/irodori`.
 - Image processing sets the Hugging Face cache to `models/huggingface/hub` at runtime. WD14 ViT uses `SmilingWolf/wd-vit-tagger-v3`; MobileSAM uses `dhkim2810/MobileSAM`. Additional imgutils models are downloaded as needed. This cache configuration is shared within the ComfyUI process.

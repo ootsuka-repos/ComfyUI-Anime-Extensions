@@ -60,12 +60,36 @@ def peek_latent_dim_from_checkpoint(checkpoint_path: str) -> int:
     return int(config["latent_dim"])
 
 
+SIDECAR_CODEC_RELPATH = "codec/weights.pth"
+
+
 def codec_repo_for_latent_dim(latent_dim: int) -> str:
     if int(latent_dim) == 32:
         return "Aratako/Semantic-DACVAE-Japanese-32dim"
     if int(latent_dim) == 128:
         return "facebook/dacvae-watermarked"
     raise ValueError(f"Unsupported checkpoint latent_dim={latent_dim}.")
+
+
+def sidecar_codec_path(checkpoint_path: str | Path) -> Path | None:
+    """Codec shipped next to the checkpoint, if the pair was fine-tuned together."""
+
+    candidate = Path(checkpoint_path).parent / SIDECAR_CODEC_RELPATH
+    return candidate if candidate.is_file() else None
+
+
+def codec_source_for_checkpoint(checkpoint_path: str | Path, latent_dim: int) -> str:
+    """Codec DACVAECodec.load should read for this checkpoint.
+
+    A fine-tuned codec is not interchangeable with the public one even at the
+    same latent_dim, so a sidecar next to the checkpoint wins over the
+    latent_dim routing.
+    """
+
+    sidecar = sidecar_codec_path(checkpoint_path)
+    if sidecar is not None:
+        return str(sidecar)
+    return codec_repo_for_latent_dim(int(latent_dim))
 
 
 def resolve_lora_path(lora_name: str) -> str | None:
