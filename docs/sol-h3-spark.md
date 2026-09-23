@@ -1,9 +1,10 @@
 # Sol-H3-Spark for ComfyUI-Anime-Extensions
 
 `ComfyUIExtensions.SolH3` runs the official Sol-H3-Spark pipeline as owned
-child processes. Model execution belongs here; the Codex/Claude plugin contains
-editable workflow JSON and the existing production planning/composition library.
-Legacy MiniMax pruned/fused/VDN/SLA graphs are not used as fallbacks.
+child processes. Model execution belongs here; the Doujin Forge plugin (an omp
+extension package) contains editable workflow JSON and the existing production
+planning/composition library. Legacy MiniMax pruned/fused/VDN/SLA graphs are not
+used as fallbacks.
 
 Upstream: [Sol-H3-Spark](https://nvlabs.github.io/Sana/Sol-Engine/Sol-H3-Spark/),
 Sana `sol-engine` revision `8e0db4fa562d727ea28b8d63015c196db7d97cae`.
