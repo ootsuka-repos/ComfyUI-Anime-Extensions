@@ -231,8 +231,14 @@ class IrodoriTTSSampler(io.ComfyNode):
             texts=text_list,
             caption=voice_design_config.get("caption", None),
             ref_wav=ref_config.get("ref_wav", None),
+            ref_wavs=ref_config.get("ref_wavs", None) or None,
             ref_latent=ref_config.get("ref_latent", None),
-            no_ref=bool(ref_config.get("no_ref", ref_config.get("ref_wav", None) is None)),
+            no_ref=bool(
+                ref_config.get(
+                    "no_ref",
+                    ref_config.get("ref_wav", None) is None and not ref_config.get("ref_wavs"),
+                )
+            ),
             ref_normalize_db=ref_config.get("ref_normalize_db", None),
             ref_ensure_max=bool(ref_config.get("ref_ensure_max", False)),
             num_candidates=candidate_count,

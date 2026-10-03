@@ -17,6 +17,7 @@ nodes = [
     irodori_model_loader.IrodoriModelLoader,
     irodori_lora_stack.IrodoriLoRAStack,
     irodori_reference_audio.IrodoriReferenceAudio,
+    irodori_reference_audio.IrodoriReferenceAudioList,
     irodori_voice_design_config.IrodoriVoiceDesignConfig,
     irodori_cfg_config.IrodoriCFGConfig,
     irodori_rescale_config.IrodoriRescaleConfig,

@@ -164,3 +164,81 @@ class IrodoriReferenceAudio(io.ComfyNode):
         if _is_video_file(audio_path) and _find_ffmpeg() is None:
             return "Video reference audio requires imageio-ffmpeg or ffmpeg. Install requirements.txt or select an audio file."
         return True
+
+
+def _reference_list_entries(audios: str) -> list[str]:
+    return [line.strip() for line in str(audios).splitlines() if line.strip()]
+
+
+class IrodoriReferenceAudioList(io.ComfyNode):
+    """Several audio files as one speaker reference.
+
+    Each clip is encoded and loudness-normalized on its own, then the latents
+    are concatenated in order up to max_ref_seconds. Joining the waveforms
+    first would normalize them as one recording and blur clip boundaries.
+    """
+
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id=mk_name(PACKAGE_NAME, "ReferenceAudioList"),
+            display_name="IrodoriTTS Reference Audio List",
+            category=CATEGORY,
+            inputs=[
+                io.String.Input(
+                    "audios",
+                    multiline=True,
+                    tooltip=(
+                        "話者参照に使う音声ファイルを1行に1つ書きます。inputフォルダからの相対パスで、"
+                        "temp領域のファイルは「name [temp]」と書きます。上から順に連結します。"
+                    ),
+                ),
+                io.Boolean.Input(
+                    "normalize_ref_audio",
+                    default=False,
+                    tooltip="各参照音声を個別に-16dB基準で正規化します。",
+                ),
+                io.Float.Input(
+                    "max_ref_seconds",
+                    default=120.0,
+                    min=1.0,
+                    max=120.0,
+                    step=1.0,
+                    tooltip="連結後の参照として使用する最大秒数です。超えた分は末尾から切り詰めます。",
+                ),
+            ],
+            outputs=[
+                IO_REF_CONFIG.Output(display_name="irodori_ref_config"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, audios: str, normalize_ref_audio: bool, max_ref_seconds: float):
+        paths = [folder_paths.get_annotated_filepath(entry) for entry in _reference_list_entries(audios)]
+        config = {
+            "ref_wav": None,
+            "ref_wavs": paths,
+            "ref_latent": None,
+            "no_ref": False,
+            "ref_normalize_db": -16.0 if normalize_ref_audio else None,
+            "ref_ensure_max": bool(normalize_ref_audio),
+            "max_ref_seconds": float(max_ref_seconds),
+        }
+        return io.NodeOutput(config)
+
+    @classmethod
+    def fingerprint_inputs(cls, **kwargs):
+        entries = _reference_list_entries(kwargs.get("audios", ""))
+        return "\n".join(_file_digest(folder_paths.get_annotated_filepath(entry)) for entry in entries)
+
+    @classmethod
+    def validate_inputs(cls, **kwargs):
+        entries = _reference_list_entries(kwargs.get("audios", ""))
+        if not entries:
+            return "Reference audio list is empty."
+        for entry in entries:
+            if not folder_paths.exists_annotated_filepath(entry):
+                return f"Invalid audio file: {entry}"
+            if _is_video_file(folder_paths.get_annotated_filepath(entry)):
+                return f"Reference audio list accepts audio files only: {entry}"
+        return True

@@ -22,6 +22,7 @@ Category: `ComfyUIExtensions/IrodoriTTS`. Character Voice Sampler is in its `Cha
 | IrodoriTTS Sampler | Generate speech from text, with optional reference audio, VoiceDesign, and sampling settings |
 | Irodori Character Voice Sampler | Generate speech with a Character Voice checkpoint and an optional character image |
 | IrodoriTTS Reference Audio | Use an audio or video file as a speaker reference; configure normalization and maximum reference duration |
+| IrodoriTTS Reference Audio List | Use several audio files, one per line, as one speaker reference |
 | IrodoriTTS VoiceDesign Config | Set a voice description (`caption`) for compatible models |
 | IrodoriTTS CFG Config | Configure guidance for text, speaker, caption, and character conditioning |
 | IrodoriTTS Rescale Config | Configure rescaling, truncation, and speaker K/V correction |
@@ -149,6 +150,8 @@ ComfyUI/
 Standard TTS estimates duration when the checkpoint has a duration predictor. Without one, it falls back to 30 seconds and ignores `duration_scale`. The scale defaults to 1.0, accepts 0.1–3.0, and multiplies the predicted duration; generation is limited to 0.5–30 seconds. There is no manual duration input. `trim_tail` is enabled by default, so the final audio may be shorter after trimming.
 
 Reference Audio accepts audio/video files in ComfyUI's `input` directory and supports audio uploads. `max_ref_seconds` accepts 1–120 seconds and defaults to 120. Audio extraction from video uses imageio-ffmpeg or ffmpeg.
+
+Reference Audio List takes one audio file per line (`name` for `input`, `name [temp]` for the temp directory). Each clip is normalized and encoded on its own, and the latents are concatenated in order up to `max_ref_seconds`. Video files are not accepted here.
 
 ### Character Voice
 
