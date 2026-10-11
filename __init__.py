@@ -1,33 +1,29 @@
 from __future__ import annotations
 
-from comfy_api.latest import ComfyExtension
-from comfy_api.latest import io
+from comfy_api.latest import ComfyExtension, io
 from typing_extensions import override
-
-from .py import NODES
 
 
 class Extension(ComfyExtension):
     @override
+    async def on_load(self) -> None:
+        from comfy_api.latest import ComfyAPI
+        from server import PromptServer
+
+        from .py.model_lifecycle import model_lifecycle
+        from .py.routes import register_routes
+
+        register_routes(PromptServer.instance.routes)
+        await ComfyAPI().caching.register_provider(model_lifecycle)
+
+    @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return NODES
+        from .py import get_node_list
+
+        return get_node_list()
 
 
 async def comfy_entrypoint() -> Extension:
-    from comfy_api.latest import ComfyAPI
-    from aiohttp import web
-    from server import PromptServer
-    from .py.nodes.yue2 import runtime_status
-    from .py.model_lifecycle import model_lifecycle
-
-    await ComfyAPI().caching.register_provider(model_lifecycle)
-
-    if hasattr(PromptServer, 'instance'):
-        async def yue2_status(request):
-            return web.json_response(runtime_status())
-        PromptServer.instance.routes.get('/yue2/status')(yue2_status)
-        from .py.model_identity import model_identity_route
-        PromptServer.instance.routes.post("/ComfyUIExtensions/model-identity")(model_identity_route)
     return Extension()
 
 

@@ -1,30 +1,7 @@
-# Irodori-TTS ComfyUI Extension requirements
-# Note: torch and torchaudio are supplied by ComfyUI and deliberately omitted to
-# avoid replacing a working accelerator build. Irodori-TTS v4.1-Small requires a
-# ComfyUI environment with PyTorch 2.10 or newer.
-
-dacvae @ git+https://github.com/facebookresearch/dacvae
-torchcodec>=0.10.0,<0.11.0
-transformers>=5.12.1,<6
-huggingface-hub>=0.34.0
-safetensors>=0.7.0
-sentencepiece>=0.1.99
-soundfile>=0.12.0
-imageio-ffmpeg>=0.5.1
-peft>=0.18.0
-timm>=1.0.26
-dghs-imgutils>=0.19.0,<0.20
-hfutils>=0.13.0,<0.14
-pandas>=2.2.0
-pyclipper>=1.3.0
-shapely>=2.0.0,!=2.0.7
-ultralytics>=8.4.114,<9
-silentcipher @ git+https://github.com/SesameAILabs/silentcipher.git@d46d7d0893a583d8968ab3a6626e2289faec9152
-
-
-# Extensions VRM pose extraction uses the existing ComfyUI runtime.
-rtmlib>=0.0.14
-onnxruntime>=1.20
-
-# Extensions text and vision workflow transport.
-httpx>=0.27
+# Full ComfyUI-Anime-Extensions install; each feature file is also installable alone.
+# torch and torchaudio are supplied by ComfyUI and deliberately omitted to avoid
+# replacing a working accelerator build. Irodori-TTS v4.1-Small requires PyTorch 2.10+.
+-r requirements-irodori.txt
+-r requirements-image.txt
+-r requirements-avatar.txt
+-r requirements-text.txt

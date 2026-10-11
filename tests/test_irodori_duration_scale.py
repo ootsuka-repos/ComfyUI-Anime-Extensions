@@ -6,6 +6,7 @@ import unittest
 import uuid
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from unittest.mock import patch
 
 import torch
 
@@ -150,6 +151,11 @@ def _execute(module, *, duration_scale: float | None = None, **legacy):
 
 
 class IrodoriDurationScaleTests(unittest.TestCase):
+    def setUp(self):
+        modules = patch.dict(sys.modules)
+        modules.start()
+        self.addCleanup(modules.stop)
+
     def test_schema_exposes_an_optional_bounded_scale(self) -> None:
         module, _runtime = _load_sampler()
 

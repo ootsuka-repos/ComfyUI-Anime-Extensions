@@ -4,13 +4,11 @@ from pathlib import Path
 import folder_paths
 import torch
 from comfy_api.latest import io
-from safetensors import safe_open
 
-from ...modules.irodori_tts.inference_runtime import (
+from ...runtime_devices import (
     list_available_runtime_devices,
     list_available_runtime_precisions,
 )
-
 
 IO_MODEL_CONFIG = io.Custom("IRODORI_MODEL_CONFIG")
 IO_LORA_STACK = io.Custom("IRODORI_LORA_STACK")
@@ -29,7 +27,7 @@ def available_devices() -> list[str]:
 def available_precisions(device: str = "cuda") -> list[str]:
     try:
         return list_available_runtime_precisions(device)
-    except Exception:
+    except ValueError:
         return ["fp32", "bf16"]
 
 
@@ -45,6 +43,8 @@ def resolve_checkpoint_path(model_name: str) -> str:
 def peek_latent_dim_from_checkpoint(checkpoint_path: str) -> int:
     path = Path(checkpoint_path)
     if path.suffix.lower() == ".safetensors":
+        from safetensors import safe_open
+
         with safe_open(str(path), framework="pt", device="cpu") as handle:
             metadata = handle.metadata() or {}
         raw_config = metadata.get("config_json")

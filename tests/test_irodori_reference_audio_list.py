@@ -7,6 +7,7 @@ import unittest
 import uuid
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -80,6 +81,9 @@ def _load_reference_audio(input_dir: Path):
 
 class IrodoriReferenceAudioListTests(unittest.TestCase):
     def setUp(self) -> None:
+        modules = patch.dict(sys.modules)
+        modules.start()
+        self.addCleanup(modules.stop)
         self._tmp = tempfile.TemporaryDirectory()
         self.input_dir = Path(self._tmp.name)
         (self.input_dir / "temp").mkdir()
@@ -120,6 +124,11 @@ class IrodoriReferenceAudioListTests(unittest.TestCase):
 
 
 class IrodoriSamplerReferenceListTests(unittest.TestCase):
+    def setUp(self):
+        modules = patch.dict(sys.modules)
+        modules.start()
+        self.addCleanup(modules.stop)
+
     def test_sampler_forwards_reference_lists(self) -> None:
         module, runtime = _load_sampler()
 

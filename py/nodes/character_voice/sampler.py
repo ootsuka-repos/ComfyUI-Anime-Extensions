@@ -4,13 +4,6 @@ import comfy.utils
 import torch
 from comfy_api.latest import io
 
-from ...modules.irodori_character_voice.inference_runtime import (
-    RuntimeKey,
-    SamplingRequest,
-    clear_cached_runtime,
-    get_cached_runtime,
-    offload_cached_runtime,
-)
 from ...node_utils import mk_name
 from ..wrapper.common import CATEGORY, PACKAGE_NAME
 from ..wrapper.irodori_common import (
@@ -136,6 +129,14 @@ class IrodoriCharacterVoiceSampler(io.ComfyNode):
         rescale_config: dict | None = None,
         trim_tail_config: dict | None = None,
     ):
+        from ...modules.irodori_character_voice.inference_runtime import (
+            RuntimeKey,
+            SamplingRequest,
+            clear_cached_runtime,
+            get_cached_runtime,
+            offload_cached_runtime,
+        )
+
         cfg_config = cfg_config or {}
         rescale_config = rescale_config or {}
         trim_tail_config = trim_tail_config or {}

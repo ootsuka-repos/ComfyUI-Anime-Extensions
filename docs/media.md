@@ -18,9 +18,21 @@ The client production library or calling agent handles planning, splitting, join
 
 ## Text and vision generation
 
-`ComfyUIExtensions.TextCompletion` calls the configured provider from this extension. Client plugins retain prompts and validation logic for scripts, structure, and proofreading, then exchange JSON requests and results with the node. The backend supports structured output, image inputs, generation parameters, and local model reloading. Tool execution is disabled in the node. `ComfyUIExtensions.TextModelRelease` requests local model unloading from the ComfyUI host.
+For canvas workflows, add `ComfyUIExtensions.TextRequest` (**Text Request**) and connect its `request_json` output to `ComfyUIExtensions.TextCompletion` (**Text Completion**). Enter ordinary text in `user_prompt` and `system_prompt`; quotes, line breaks, and Japanese text are encoded automatically. The optional `model` field overrides the host model; empty or whitespace-only values use the host default. Connect Text Completion's `text` output to ComfyUI's **Preview as Text** to display it on the canvas.
+
+Text Completion also continues to accept direct JSON from client plugins. Required fields are `user_prompt`, `system_prompt`, and `log_tag` strings. The backend supports structured output, image inputs, generation parameters, and local model reloading. Tool execution is disabled in the node. `ComfyUIExtensions.TextModelRelease` requests local model unloading from the ComfyUI host.
 
 Set `COMFYUI_EXTENSIONS_OPENAI_BASE_URL`, `COMFYUI_EXTENSIONS_OPENAI_MODEL`, and, if required, `COMFYUI_EXTENSIONS_OPENAI_API_KEY` in the ComfyUI process environment. The default endpoint is `http://127.0.0.1:8888/v1`. Endpoints and credentials are not workflow inputs. The selected text/VLM service must already be running; arbitrary providers are not started automatically.
+
+Install `requirements-text.txt` in the ComfyUI environment for text-only usage. The HTTP backend loads at execution time, so discovering other nodes does not require `httpx`.
+
+## Extension initialization
+
+The extension uses the ComfyUI V3 Extension API. `comfy_entrypoint()` constructs the extension; `on_load()` registers the cache provider and HTTP routes. Importing the package or enumerating schemas does not require a running `PromptServer` or load the optional inference backends.
+
+Route registration is centralized in `py/routes.py`. Existing endpoints are unchanged: `GET /yue2/status`, `GET /ComfyUIExtensions/SolH3/status`, `POST /ComfyUIExtensions/sol-model-identity`, and `POST /ComfyUIExtensions/model-identity`. Repeated registration on the same route table does not duplicate routes. Runtime status and content hashing run outside the HTTP event loop.
+
+Media registration is separate from implementation: `avatar.py` owns VRM operations, `comic.py` owns page layout, and `text.py` / `sol_h3.py` own their respective nodes. Irodori device choices live in `py/runtime_devices.py`, so the model-loader schema does not import a speech model.
 
 ## Detecting replaced models
 

@@ -53,6 +53,7 @@ Categories under `ComfyUIExtensions`: `Text`, `Video`, `Comic`, `Avatar`, and `m
 
 | Node | Function and outputs |
 | --- | --- |
+| Text Request | Build a text request from ordinary prompt fields and connect it to Text Completion; no JSON editing required |
 | Text Completion | Send a JSON request to an OpenAI-compatible service for text or image-conditioned generation; return a string |
 | Release Local Text Model | Request model unloading from a supported local text service; return whether a model was released |
 | Sol-H3-Spark | Generate video from text, first/last frames, or reference media; return an artifact manifest |
@@ -68,11 +69,11 @@ See [nodes, configuration, and model identity APIs](docs/media.md) and [Sol-H3-S
 ## Requirements
 
 - ComfyUI with the `comfy_api.latest` Extension API and cache-provider prompt lifecycle support
-- A Python environment compatible with ComfyUI and [requirements.txt](requirements.txt)
+- The Python environment used by ComfyUI, plus dependencies for the features you run (or the complete [requirements.txt](requirements.txt))
 - PyTorch 2.10 or later for Irodori-TTS v4.1-Small, as specified in `requirements.txt`
 - Git and internet access to obtain dependencies and models
 
-PyTorch and torchaudio come from the ComfyUI environment and are deliberately omitted from `requirements.txt`. Dependencies include torchcodec for audio, transformers and DACVAE for model inference, and dghs-imgutils, timm, and ultralytics for image processing.
+PyTorch and torchaudio come from the ComfyUI environment and are deliberately omitted from the requirements files. Inference dependencies are loaded when their feature runs, not when ComfyUI discovers nodes. Missing speech, image, or avatar libraries therefore do not prevent unrelated nodes from appearing. Executing a feature still requires its real dependencies and model/runtime setup.
 
 ## Installation
 
@@ -98,9 +99,24 @@ git clone https://github.com/ootsuka-repos/ComfyUI-Anime-Extensions.git .\ComfyU
 
 Restart ComfyUI after installation. To update, run `git pull` in this repository, reinstall dependencies in the same Python environment, and restart ComfyUI.
 
+### Install only the features you need
+
+`requirements.txt` remains the full installation. For a smaller installation, replace it in the commands above with one or more feature files:
+
+| Feature | Requirements file |
+| --- | --- |
+| Irodori-TTS and Character Voice | `requirements-irodori.txt` |
+| Image analysis, segmentation, and heatmaps | `requirements-image.txt` |
+| VRM pose extraction | `requirements-avatar.txt` |
+| Text and vision HTTP requests | `requirements-text.txt` |
+
+For example, text-only usage needs `python -m pip install -r custom_nodes/ComfyUI-Anime-Extensions/requirements-text.txt` in the ComfyUI environment. Comic Page and the standard model-loader wrappers use ComfyUI's existing dependencies. YuE2 needs `soundfile>=0.12.0` in the ComfyUI environment (also included in the full and Irodori installs), plus its separate inference environment; see [YuE2 setup](docs/yue2.md).
+
+All nodes stay discoverable with a selective install. Install another feature's requirements before running its nodes; missing backends are not replaced with dummy outputs.
+
 ## Additional setup by feature
 
-Model weights and dedicated runtimes are not bundled. In addition to installing `requirements.txt`, prepare the components needed for your chosen features.
+Model weights and dedicated runtimes are not bundled. In addition to installing your chosen feature dependencies, prepare the components needed for those features.
 
 | Feature | Additional setup |
 | --- | --- |
@@ -167,12 +183,12 @@ For MobileSAM, specify the rectangle in pixel coordinates of the original image.
 
 ### Text, video, comics, and VRM
 
-- **Text:** Set `Text Completion` → `request_json` to `{"user_prompt":"Write a short line of dialogue.","system_prompt":"Reply in English.","log_tag":"example"}`. Use `image_data_urls` for image conditioning and `response_format` for structured output. Tool execution is disabled in this node.
+- **Text:** Add `Text Request` and `Text Completion` under `ComfyUIExtensions/Text`. Connect `request_json` between them, enter `user_prompt` and optional instructions in `system_prompt`, and leave `model` blank to use the host-configured model. Connect the `text` output to ComfyUI's `Preview as Text` to see the result on the canvas. Advanced clients can still supply JSON directly to Text Completion, for example `{"user_prompt":"Write a short line of dialogue.","system_prompt":"Reply in English.","log_tag":"example"}`; `image_data_urls` and `response_format` remain available through JSON. Tool execution is disabled in this node.
 - **Comics:** Feed an IMAGE batch of equally sized panels into `Comic Page`, then connect `page` to an image-saving node. This node arranges panels; drawing, speech bubbles, and lettering are separate steps.
 - **Video:** Select a `task` in `Sol-H3-Spark`. `t2va` accepts text only; `fl2va` uses a first or last frame; `ref2va` requires references containing an image or video. Place input files inside ComfyUI's `input` directory.
 - **VRM:** `VRM Starter` creates a model for technical validation. For `VRM Dance`, specify `avatar_file` and `source_video` from `input`. Results are saved to `output/avatar/<id>/`. Source audio, when present, is included in the output video.
 
-Display names, node IDs, categories, environment variables, and API paths use the extension's current naming. There are no aliases for legacy identifiers. Re-add affected nodes in existing workflows and update host settings and API clients to the names documented here.
+This refactor preserves existing node IDs, workflow inputs/outputs, categories, environment variables, and API paths. Existing workflows do not need to be rebuilt; Text Request is an additional way to supply the existing Text Completion input.
 
 ## Current limitations
 
@@ -185,7 +201,8 @@ Display names, node IDs, categories, environment variables, and API paths use th
 
 ## Troubleshooting
 
-- **Missing nodes:** Check ComfyUI's startup log for import errors and install dependencies into the Python environment ComfyUI actually uses.
+- **Missing nodes:** Check ComfyUI's startup log and verify that it supports `comfy_api.latest`, `ComfyExtension.on_load`, and cache-provider lifecycle hooks. Restart after installing or updating the extension.
+- **Missing library when a node runs:** Install that feature's requirements in the Python environment ComfyUI actually uses, then restart. With a selective install, node visibility does not imply that every inference backend is installed.
 - **Missing checkpoints:** Place them under `models/checkpoints`, then refresh the model list or restart ComfyUI.
 - **`config_json` or `latent_dim` errors:** Use a compatible checkpoint containing Irodori configuration metadata. Model Loader also lists checkpoints intended for other models.
 - **Slow first run:** Initial downloads and model initialization take time. Check console progress and network access.

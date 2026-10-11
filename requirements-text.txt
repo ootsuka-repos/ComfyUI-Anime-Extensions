@@ -1,0 +1,2 @@
+# Text and vision workflow HTTP transport; the model runs at the configured endpoint.
+httpx>=0.27

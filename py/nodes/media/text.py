@@ -7,7 +7,38 @@ import json
 from comfy import model_management
 from comfy_api.latest import io
 
-from .text_backend import run_openai_agent
+
+class TextRequest(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="ComfyUIExtensions.TextRequest",
+            display_name="Text Request",
+            category="ComfyUIExtensions/Text",
+            description="通常の文章から生成リクエストを作成します。request_jsonをText Completionに接続してください。",
+            inputs=[
+                io.String.Input(
+                    "user_prompt", multiline=True, default="",
+                    tooltip="生成してほしい内容や質問をそのまま入力します。JSONを書く必要はありません。",
+                ),
+                io.String.Input(
+                    "system_prompt", multiline=True, default="",
+                    tooltip="応答の役割・文体などの指示です。不要なら空欄にします。",
+                ),
+                io.String.Input(
+                    "model", default="", optional=True,
+                    tooltip="使用するモデル名です。空欄または空白のみの場合はホスト設定の既定モデルを使用します。",
+                ),
+            ],
+            outputs=[io.String.Output("request_json", tooltip="Text Completionのrequest_jsonに接続します。")],
+        )
+
+    @classmethod
+    def execute(cls, user_prompt, system_prompt, model=""):
+        request = {"user_prompt": user_prompt, "system_prompt": system_prompt, "log_tag": "text"}
+        if model and model.strip():
+            request["model"] = model.strip()
+        return io.NodeOutput(json.dumps(request, ensure_ascii=False))
 
 
 class TextCompletion(io.ComfyNode):
@@ -17,7 +48,16 @@ class TextCompletion(io.ComfyNode):
             node_id="ComfyUIExtensions.TextCompletion",
             display_name="Text Completion",
             category="ComfyUIExtensions/Text",
-            inputs=[io.String.Input("request_json", multiline=True, default='{"user_prompt":"","system_prompt":"","log_tag":"text"}')],
+            description=(
+                "Text Requestのrequest_jsonを接続して文章を生成します。"
+                "高度な設定やプログラムからの利用では、従来どおりJSONを直接入力できます。"
+                "接続先URL・認証情報はホスト側で設定します。"
+            ),
+            inputs=[io.String.Input(
+                "request_json", multiline=True,
+                default='{"user_prompt":"","system_prompt":"","log_tag":"text"}',
+                tooltip="Text Requestの出力を接続するか、user_prompt・system_prompt・log_tagを含むJSONを入力します。",
+            )],
             outputs=[io.String.Output("text")],
             is_output_node=True,
             not_idempotent=True,
@@ -34,6 +74,8 @@ class TextCompletion(io.ComfyNode):
             raise ValueError("Text request requires user_prompt, system_prompt and log_tag strings")
         # URL, credentials and model lifecycle configuration belong to the host.
         # Never expose the backend's tool execution through a workflow input.
+        from .text_backend import run_openai_agent
+
         task = asyncio.create_task(run_openai_agent(**request, allowed_tools=[]))
         try:
             while not task.done():

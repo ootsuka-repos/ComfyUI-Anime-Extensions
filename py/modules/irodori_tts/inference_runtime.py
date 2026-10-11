@@ -18,6 +18,7 @@ import torchaudio
 from safetensors import safe_open
 from safetensors.torch import load_file as load_safetensors_file
 
+from ... import runtime_devices
 from .codec import DACVAECodec, patchify_latent, unpatchify_latent
 from .config import ModelConfig, merge_dataclass_overrides
 from .duration import build_duration_features
@@ -36,68 +37,6 @@ from .speaker_inversion import (
 from .text_normalization import normalize_text
 from .tokenizer import PretrainedTextTokenizer
 from .watermark import SilentCipherWatermarker
-
-
-def _is_mps_available() -> bool:
-    backends = getattr(torch, "backends", None)
-    if backends is None or not hasattr(backends, "mps"):
-        return False
-    return bool(torch.backends.mps.is_available())
-
-
-def _is_xpu_available() -> bool:
-    try:
-        return bool(torch.xpu.is_available())
-    except AttributeError:
-        return False
-
-
-def resolve_runtime_device(device: str | torch.device) -> torch.device:
-    resolved = torch.device(device)
-    if resolved.type == "cpu":
-        return resolved
-    if resolved.type == "cuda":
-        if not torch.cuda.is_available():
-            raise ValueError("CUDA device requested but torch.cuda.is_available() is False.")
-        return resolved
-    if resolved.type == "mps":
-        if resolved.index is not None:
-            raise ValueError("MPS device index is not supported. Use 'mps'.")
-        if not _is_mps_available():
-            raise ValueError("MPS device requested but torch.backends.mps.is_available() is False.")
-        return torch.device("mps")
-    if resolved.type == "xpu":
-        if resolved.index is not None:
-            raise ValueError("XPU device index is not supported. Use 'xpu'.")
-        if not _is_xpu_available():
-            raise ValueError("XPU device requested but torch.xpu.is_available() is False.")
-        return torch.device("xpu")
-    raise ValueError(
-        f"Unsupported inference device={resolved!s}. Expected one of: cpu, cuda, mps, xpu."
-    )
-
-
-def list_available_runtime_devices() -> list[str]:
-    devices: list[str] = []
-    if torch.cuda.is_available():
-        devices.append("cuda")
-    if _is_mps_available():
-        devices.append("mps")
-    if _is_xpu_available():
-        devices.append("xpu")
-    devices.append("cpu")
-    return devices
-
-
-def default_runtime_device() -> str:
-    return list_available_runtime_devices()[0]
-
-
-def list_available_runtime_precisions(device: str | torch.device) -> list[str]:
-    resolved = resolve_runtime_device(device)
-    if resolved.type in ("cuda", "xpu"):
-        return ["fp32", "bf16"]
-    return ["fp32"]
 
 
 def _sync_device(device: torch.device) -> None:
@@ -608,8 +547,8 @@ class InferenceRuntime:
         default_max_ref_seconds: float = _LEGACY_MAX_REF_SECONDS,
     ) -> None:
         self.key = key
-        self.model_device = resolve_runtime_device(key.model_device)
-        self.codec_device = resolve_runtime_device(key.codec_device)
+        self.model_device = runtime_devices.resolve_runtime_device(key.model_device)
+        self.codec_device = runtime_devices.resolve_runtime_device(key.codec_device)
         self.model_cfg = model_cfg
         self.train_cfg = train_cfg
         self.model = model
@@ -626,8 +565,8 @@ class InferenceRuntime:
 
     @classmethod
     def from_key(cls, key: RuntimeKey) -> InferenceRuntime:
-        model_device = resolve_runtime_device(key.model_device)
-        codec_device = resolve_runtime_device(key.codec_device)
+        model_device = runtime_devices.resolve_runtime_device(key.model_device)
+        codec_device = runtime_devices.resolve_runtime_device(key.codec_device)
         model_dtype = resolve_runtime_dtype(
             precision=key.model_precision,
             device=model_device,

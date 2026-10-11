@@ -71,6 +71,11 @@ class _TinyTagger(torch.nn.Module):
 
 
 class HeatmapInferenceModeTests(unittest.TestCase):
+    def setUp(self):
+        modules = patch.dict(sys.modules)
+        modules.start()
+        self.addCleanup(modules.stop)
+
     def test_grad_cam_works_inside_comfy_inference_mode(self):
         heatmap = _load_heatmap()
         model = _TinyTagger()

@@ -52,6 +52,11 @@ def _load_analysis():
 
 
 class MobileSamConstructionTests(unittest.TestCase):
+    def setUp(self):
+        modules = patch.dict(sys.modules)
+        modules.start()
+        self.addCleanup(modules.stop)
+
     def test_model_is_not_created_as_an_inference_tensor(self):
         analysis = _load_analysis()
 

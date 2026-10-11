@@ -10,6 +10,7 @@
 - YuE2-3B revision: `29b3558dd46954a0cd9021dc76d5c91864a0f1c7`.
 - YuE2-Vae revision: `9a94e1d0ea9f8087e98f77fa88df4a4068104d2a`.
 - Models must be downloaded in advance. The node neither downloads models nor sends requests externally; it uses `local_files_only=True` and an offline environment. Upstream code validates the weight manifest.
+- The ComfyUI host environment needs `soundfile>=0.12.0` to read worker output. It is included in this extension's full and Irodori requirements; for YuE2-only use, install it with `python -m pip install "soundfile>=0.12.0"` using ComfyUI's interpreter.
 
 Create `ComfyUI/runtimes/YuE2/comfyui.json` locally. Override this location with `COMFYUI_YUE2_CONFIG` in the ComfyUI startup environment. This is host-admin configuration; executable and output paths are not accepted as node inputs.
 
@@ -39,4 +40,4 @@ Use the standard ComfyUI API flow: `/prompt` → `/history/{prompt_id}` → `/vi
 
 ## Tests
 
-Run `tests/test_yue2.py` with ComfyUI's Python interpreter. These unit tests replace inference and do not demonstrate generation with real models. Run test files in separate processes because the existing tests modify `sys.modules`.
+Run `tests/test_yue2.py` with ComfyUI's Python interpreter and ComfyUI on `PYTHONPATH`. These unit tests replace inference and do not demonstrate generation with real models. Tests that mock ComfyUI imports restore `sys.modules` after each case, so they can also run together with `python -m unittest discover -s tests`.

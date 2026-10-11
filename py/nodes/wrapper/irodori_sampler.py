@@ -5,13 +5,6 @@ import comfy.utils
 import torch
 from comfy_api.latest import io
 
-from ...modules.irodori_tts.inference_runtime import (
-    RuntimeKey,
-    SamplingRequest,
-    clear_cached_runtime,
-    get_cached_runtime,
-    offload_cached_runtime,
-)
 from ...node_utils import mk_name
 from .common import CATEGORY, PACKAGE_NAME
 from .irodori_common import (
@@ -176,6 +169,14 @@ class IrodoriTTSSampler(io.ComfyNode):
         seconds: float | None = None,
         duration_config: dict | None = None,
     ):
+        from ...modules.irodori_tts.inference_runtime import (
+            RuntimeKey,
+            SamplingRequest,
+            clear_cached_runtime,
+            get_cached_runtime,
+            offload_cached_runtime,
+        )
+
         lora_stack = list(lora_stack or [])
         lora_paths = tuple(str(item["path"]) for item in lora_stack if item.get("path"))
         if len(lora_paths) > 1:

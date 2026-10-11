@@ -1,0 +1,4 @@
+# VRM pose extraction uses the existing ComfyUI runtime.
+# External avatar/motion model runtimes remain separately configured.
+rtmlib>=0.0.14
+onnxruntime>=1.20

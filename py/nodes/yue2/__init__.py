@@ -9,7 +9,6 @@ import time
 
 import comfy.model_management as model_management
 import folder_paths
-import soundfile as sf
 import torch
 from comfy_api.latest import io, ui
 
@@ -94,6 +93,8 @@ class YuE2Generate(io.ComfyNode):
         fields = dict(style=style, lyrics=lyrics, seed=seed, cot=cot, abc=abc,
                       cfg_scale=cfg_scale, noncommercial=noncommercial)
         native_request(fields)
+        import soundfile as sf
+
         subfolder = 'yue2/' + uuid.uuid4().hex
         directory = Path(folder_paths.get_output_directory()) / subfolder
         directory.mkdir(parents=True)
